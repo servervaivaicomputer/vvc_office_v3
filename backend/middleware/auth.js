@@ -90,7 +90,7 @@ const handleAuthCallback = (req, res, next) => {
       path:     '/',
       maxAge:   8 * 60 * 60 * 1000
     });
-    return res.redirect(302, `${FRONTEND_URL}/about/`);
+    return res.redirect(302, `${FRONTEND_URL}/`);
   } catch {
     return res.redirect(302, `${FRONTEND_URL}/login/?error=invalid_token`);
   }
