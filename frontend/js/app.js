@@ -4,41 +4,37 @@
 
 window.__BACKEND_URL = 'https://vvc-office-v3.onrender.com';
 
-const Auth = {
+var Auth = {
   TOKEN_KEY: 'sw_auth_token',
 
-  /* Token সংরক্ষণ */
-  setToken(token) {
+  setToken: function(token) {
     sessionStorage.setItem(this.TOKEN_KEY, token);
   },
 
-  /* Token পাওয়া */
-  getToken() {
+  getToken: function() {
     return sessionStorage.getItem(this.TOKEN_KEY);
   },
 
-  /* Token মুছে ফেলা */
-  clearToken() {
+  clearToken: function() {
     sessionStorage.removeItem(this.TOKEN_KEY);
   },
 
-  /* Logged in কিনা চেক */
-  isLoggedIn() {
+  isLoggedIn: function() {
     return !!this.getToken();
   },
 
-  /* Backend API call — token দিয়ে protected page content আনা */
-  async fetchPage(pageName) {
-    const token = this.getToken();
+  /* ── Fetch protected page content ── */
+  fetchPage: async function(pageName) {
+    var token = this.getToken();
     if (!token) return { error: 'not_logged_in', status: 401 };
 
     try {
-      const res = await fetch(`${window.__BACKEND_URL}/api/pages/${pageName}`, {
-        method:      'GET',
+      var res = await fetch(window.__BACKEND_URL + '/api/pages/' + pageName, {
+        method: 'GET',
         credentials: 'include',
         headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
         }
       });
 
@@ -46,34 +42,32 @@ const Auth = {
         this.clearToken();
         return { error: 'session_expired', status: 401 };
       }
-
       if (res.status === 403) {
         return { error: 'access_denied', status: 403 };
       }
-
       if (!res.ok) {
         return { error: 'server_error', status: res.status };
       }
 
-      const html = await res.text();
-      return { html, status: 200 };
+      var html = await res.text();
+      return { html: html, status: 200 };
 
     } catch (err) {
       return { error: 'network_error', status: 0 };
     }
   },
 
-  /* Login */
-  async login(username, password) {
+  /* ── User Login ── */
+  login: async function(username, password) {
     try {
-      const res = await fetch(`${window.__BACKEND_URL}/api/auth/login`, {
-        method:      'POST',
+      var res = await fetch(window.__BACKEND_URL + '/api/auth/login', {
+        method: 'POST',
         credentials: 'include',
-        headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ username, password })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, password: password })
       });
 
-      const data = await res.json();
+      var data = await res.json();
 
       if (!res.ok) {
         return {
@@ -90,17 +84,17 @@ const Auth = {
     }
   },
 
-  /* Admin Login */
-  async adminLogin(username, password) {
+  /* ── Admin Login ── */
+  adminLogin: async function(username, password) {
     try {
-      const res = await fetch(`${window.__BACKEND_URL}/api/auth/admin-login`, {
-        method:      'POST',
+      var res = await fetch(window.__BACKEND_URL + '/api/auth/admin-login', {
+        method: 'POST',
         credentials: 'include',
-        headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify({ username, password })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username, password: password })
       });
 
-      const data = await res.json();
+      var data = await res.json();
 
       if (!res.ok) {
         return { error: data.error };
@@ -114,18 +108,18 @@ const Auth = {
     }
   },
 
-  /* Admin panel fetch */
-  async fetchAdminPanel() {
-    const token = this.getToken();
+  /* ── Fetch Admin Panel HTML ── */
+  fetchAdminPanel: async function() {
+    var token = this.getToken();
     if (!token) return { error: 'not_logged_in', status: 401 };
 
     try {
-      const res = await fetch(`${window.__BACKEND_URL}/api/pages/admin/panel`, {
-        method:      'GET',
+      var res = await fetch(window.__BACKEND_URL + '/api/admin/panel-content', {
+        method: 'GET',
         credentials: 'include',
         headers: {
-          'Content-Type':  'application/json',
-          'Authorization': `Bearer ${token}`
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
         }
       });
 
@@ -133,32 +127,30 @@ const Auth = {
         this.clearToken();
         return { error: 'session_expired', status: 401 };
       }
-
       if (res.status === 403) {
         return { error: 'admin_only', status: 403 };
       }
-
       if (!res.ok) {
         return { error: 'server_error', status: res.status };
       }
 
-      const html = await res.text();
-      return { html, status: 200 };
+      var html = await res.text();
+      return { html: html, status: 200 };
 
     } catch (err) {
       return { error: 'network_error', status: 0 };
     }
   },
 
-  /* Logout */
-  async logout() {
-    const token = this.getToken();
+  /* ── Logout ── */
+  logout: async function() {
+    var token = this.getToken();
     if (token) {
       try {
-        await fetch(`${window.__BACKEND_URL}/api/auth/logout`, {
-          method:      'POST',
+        await fetch(window.__BACKEND_URL + '/api/auth/logout', {
+          method: 'POST',
           credentials: 'include',
-          headers:     { 'Authorization': `Bearer ${token}` }
+          headers: { 'Authorization': 'Bearer ' + token }
         });
       } catch (e) { /* ignore */ }
     }
