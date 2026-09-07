@@ -37,21 +37,20 @@
 
 <script src="/js/app.js"></script>
 <script>
-const BACKEND = window.__BACKEND_URL || 'https://your-backend.onrender.com';
-const form = document.getElementById('loginForm');
+const form   = document.getElementById('loginForm');
 const alertEl = document.getElementById('alert');
-const btn = document.getElementById('submitBtn');
+const btn     = document.getElementById('submitBtn');
 
-// Show error from redirect
+/* Redirect URL থেকে error message দেখাও */
 const params = new URLSearchParams(window.location.search);
 if (params.get('error')) {
   const msgs = {
-    invalid_token: 'Your session token was invalid. Please log in again.',
-    expired: 'Your session has expired. Please log in again.',
-    blocked: 'Your account has been blocked. Contact an administrator.',
+    invalid_token:  'Your session token was invalid. Please log in again.',
+    expired:        'Your session has expired. Please log in again.',
+    blocked:        'Your account has been blocked. Contact an administrator.',
     device_blocked: 'This device has been blocked. Contact an administrator.',
-    not_admin: 'Admin access required.',
-    auth_failed: 'Authentication failed. Please log in again.',
+    not_admin:      'Admin access required.',
+    auth_failed:    'Authentication failed. Please log in again.',
     user_not_found: 'User account not found.'
   };
   showAlert(msgs[params.get('error')] || 'Authentication error.', 'error');
@@ -61,46 +60,42 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const username = document.getElementById('username').value.trim();
   const password = document.getElementById('password').value;
+
   if (!username || !password) return showAlert('Both fields required.', 'error');
 
-  btn.disabled = true;
+  btn.disabled    = true;
   btn.textContent = 'Authenticating…';
 
-  try {
-    const res = await fetch(`${BACKEND}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ username, password })
-    });
-    const data = await res.json();
+  /* ★ Auth.login() ব্যবহার করো */
+  const result = await Auth.login(username, password);
 
-    if (!res.ok) {
-      showAlert(data.error || 'Login failed.' + (data.attemptsRemaining !== undefined ? ` (${data.attemptsRemaining} attempts remaining)` : ''), 'error');
-      btn.disabled = false;
-      btn.textContent = 'Authenticate';
-      return;
-    }
-
-    // Store a flag (not the token) for frontend UX
-    sessionStorage.setItem('loggedIn', 'true');
-
-    // Determine redirect destination
-    const redirect = params.get('redirect');
-    const dest = redirect && redirect.startsWith('/') ? redirect : '/projects/home';
-
-    // Redirect to backend with one-time auth token
-    window.location.href = `${BACKEND}${dest}?auth=${data.token}`;
-  } catch (err) {
-    showAlert('Network error. Is the backend running?', 'error');
-    btn.disabled = false;
+  if (result.error) {
+    showAlert(
+      result.error +
+      (result.attemptsRemaining !== undefined
+        ? ` (${result.attemptsRemaining} attempts remaining)`
+        : ''),
+      'error'
+    );
+    btn.disabled    = false;
     btn.textContent = 'Authenticate';
+    return;
+  }
+
+  /* Login success — token sessionStorage-এ save হয়ে গেছে */
+  /* ★ Redirect frontend URL-এই হবে, backend-এ না */
+  const redirect = params.get('redirect');
+
+  if (redirect && redirect.startsWith('/')) {
+    window.location.href = redirect;           // যেমন /about বা /workspace
+  } else {
+    window.location.href = '/about/';          // default redirect
   }
 });
 
 function showAlert(msg, type) {
   alertEl.textContent = msg;
-  alertEl.className = 'alert ' + type;
+  alertEl.className   = 'alert ' + type;
   alertEl.style.display = 'block';
 }
 </script>
