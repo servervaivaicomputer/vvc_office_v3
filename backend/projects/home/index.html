@@ -1,110 +1,13 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Home — Secure Workspace</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#08080c;--surface:#101018;--card:#16161f;--accent:#00ff88;--accent2:#00cc6a;--text:#e4e4e8;--muted:#5a5a6e;--danger:#ff4757;--border:#1e1e2e;--font-h:'Syne',sans-serif;--font-b:'DM Mono',monospace}
-body{background:var(--bg);color:var(--text);font-family:var(--font-b);font-size:14px;min-height:100vh}
-a{color:var(--accent);text-decoration:none}
-
-/* ── Top bar ── */
-.topbar{display:flex;align-items:center;gap:16px;padding:0 24px;height:56px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50}
-.brand{font-family:var(--font-h);font-weight:700;font-size:15px;color:var(--accent);letter-spacing:.06em;white-space:nowrap}
-.nav-links{display:flex;gap:4px;margin-left:24px;flex:1}
-.nav-links a{padding:6px 14px;border-radius:6px;font-size:13px;color:var(--muted);transition:.2s}
-.nav-links a:hover,.nav-links a.active{color:var(--text);background:var(--card)}
-.user-box{display:flex;align-items:center;gap:10px;white-space:nowrap}
-.role-badge{background:var(--accent);color:#000;font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;text-transform:uppercase}
-.btn-logout{background:transparent;border:1px solid var(--muted);color:var(--muted);padding:5px 14px;border-radius:6px;font-family:var(--font-b);font-size:12px;cursor:pointer;transition:.2s}
-.btn-logout:hover{border-color:var(--danger);color:var(--danger)}
-
-/* ── Content ── */
-.container{max-width:960px;margin:40px auto;padding:0 24px;animation:fadeUp .5s ease}
-@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-h1{font-family:var(--font-h);font-size:2rem;font-weight:700;margin-bottom:8px}
-.subtitle{color:var(--muted);margin-bottom:32px;font-size:14px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:40px}
-.card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px;transition:.25s}
-.card:hover{border-color:var(--accent);transform:translateY(-2px)}
-.card h3{font-family:var(--font-h);font-size:16px;margin-bottom:6px}
-.card p{color:var(--muted);font-size:13px;line-height:1.5}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:32px}
-@media(max-width:640px){.grid-2{grid-template-columns:1fr}}
-.info-block{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:20px}
-.info-block h3{font-family:var(--font-h);margin-bottom:10px;font-size:15px}
-.info-block .row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px}
-.info-block .row:last-child{border:none}
-.info-block .label{color:var(--muted)}
-</style>
+<title>Home</title>
 </head>
-<body>
-
-<nav class="topbar">
-  <span class="brand">◆ SECURE WORKSPACE</span>
-  <div class="nav-links" id="navLinks"></div>
-  <div class="user-box">
-    <span style="font-size:13px">{{USERNAME}}</span>
-    <span class="role-badge">{{ROLE}}</span>
-    <button class="btn-logout" onclick="logout()">Logout</button>
-  </div>
-</nav>
-
-<div class="container">
-  <h1>Welcome back, {{USERNAME}}</h1>
-  <p class="subtitle">Your secure dashboard — all activity is logged and monitored.</p>
-
-  <div class="cards" id="pageCards"></div>
-
-  <div class="grid-2">
-    <div class="info-block">
-      <h3>Account Details</h3>
-      <div class="row"><span class="label">Username</span><span>{{USERNAME}}</span></div>
-      <div class="row"><span class="label">Role</span><span>{{ROLE}}</span></div>
-      <div class="row"><span class="label">Status</span><span style="color:var(--accent)">Active</span></div>
-    </div>
-    <div class="info-block">
-      <h3>Session Info</h3>
-      <div class="row"><span class="label">Protocol</span><span>HTTPS</span></div>
-      <div class="row"><span class="label">Auth</span><span>JWT HttpOnly Cookie</span></div>
-      <div class="row"><span class="label">Connection</span><span>Encrypted</span></div>
-    </div>
-  </div>
+<body style="background:#08080c;color:#e4e4e8;font-family:monospace;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;text-align:center">
+<div>
+  <p>this is home</p>
 </div>
-
-<script>
-const pages = {{USER_PAGES}};
-const role  = '{{ROLE}}';
-const nav   = document.getElementById('navLinks');
-const cards = document.getElementById('pageCards');
-const labels = { home: 'Home', about: 'About', workspace: 'Workspace' };
-const descs  = { home: 'Dashboard overview and quick actions.', about: 'System information and documentation.', workspace: 'Your collaborative workspace and tools.' };
-const icons  = { home: '⌂', about: '◈', workspace: '⊞' };
-
-// Build nav
-const allP = role === 'admin' ? ['home','about','workspace'] : pages;
-allP.forEach(p => {
-  const a = document.createElement('a');
-  a.href = '/projects/' + p;
-  a.textContent = labels[p] || p;
-  if (p === 'home') a.className = 'active';
-  nav.appendChild(a);
-});
-if (role === 'admin') { const a = document.createElement('a'); a.href = '/admin'; a.textContent = 'Admin'; nav.appendChild(a); }
-
-// Build cards
-(pages.length ? pages : ['home']).forEach(p => {
-  cards.innerHTML += `<div class="card"><h3>${icons[p]||'●'} ${labels[p]||p}</h3><p>${descs[p]||''}</p><br><a href="/projects/${p}">Open →</a></div>`;
-});
-
-async function logout() {
-  await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-  window.location.href = '{{FRONTEND_URL}}';
-}
-</script>
 </body>
 </html>
