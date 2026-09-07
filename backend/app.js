@@ -12,24 +12,13 @@ const PORT = process.env.PORT || 3000;
 
 /* ── Security headers ── */
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
-      styleSrc:   ["'self'", "'unsafe-inline'", "fonts.googleapis.com"],
-      fontSrc:    ["'self'", "fonts.gstatic.com", "fonts.googleapis.com"],
-      imgSrc:     ["'self'", "data:"],
-      connectSrc: ["'self'"],
-      frameSrc:   ["'none'"],
-      objectSrc:  ["'none'"]
-    }
-  },
+  contentSecurityPolicy: false,
   crossOriginEmbedderPolicy: false
 }));
 
-/* ── CORS ── */
+/* ── CORS — সব URL allow ── */
 app.use(cors({
-  origin:      process.env.FRONTEND_URL || 'https://your-site.netlify.app',
+  origin:      true,
   credentials: true,
   methods:     ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
