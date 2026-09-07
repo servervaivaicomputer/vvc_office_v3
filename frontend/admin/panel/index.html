@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Panel — Secure Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- Loading state -->
+<div id="loading" class="load-screen">
+  <div class="load-brand">◆</div>
+  <p>Loading admin panel…</p>
+</div>
+
+<!-- Backend admin panel inject হবে -->
+<div id="protectedContent" style="display:none"></div>
+
+<!-- Login required -->
+<div id="loginRequired" style="display:none">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-brand">◆ ADMIN ACCESS</div>
+      <h1>Authentication Required</h1>
+      <p class="auth-sub">Admin login required to access this panel.</p>
+      <a href="/admin/" class="btn-primary full">Admin Login →</a>
+    </div>
+  </div>
+</div>
+
+<!-- Access denied -->
+<div id="accessDenied" style="display:none">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-brand">◆ ADMIN ACCESS</div>
+      <h1 style="color:var(--danger)">403 — Admin Only</h1>
+      <p class="auth-sub">You don't have administrator privileges.</p>
+      <a href="/" class="btn-primary full">← Back to Home</a>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js"></script>
+<script>
+(async function() {
+  const loading   = document.getElementById('loading');
+  const content   = document.getElementById('protectedContent');
+  const loginMsg  = document.getElementById('loginRequired');
+  const deniedMsg = document.getElementById('accessDenied');
+
+  /* Token নেই → admin login page */
+  if (!Auth.isLoggedIn()) {
+    loading.style.display  = 'none';
+    loginMsg.style.display = 'block';
+    return;
+  }
+
+  /* ★ Backend থেকে admin panel content fetch করো */
+  const result = await Auth.fetchAdminPanel();
+
+  loading.style.display = 'none';
+
+  if (result.status === 200) {
+    content.innerHTML      = result.html;
+    content.style.display  = 'block';
+
+    /* Backend HTML-এর scripts execute করো */
+    content.querySelectorAll('script').forEach(oldScript => {
+      const newScript = document.createElement('script');
+      newScript.textContent = oldScript.textContent;
+      document.body.appendChild(newScript);
+    });
+
+  } else if (result.status === 401) {
+    Auth.clearToken();
+    loginMsg.style.display = 'block';
+
+  } else if (result.status === 403) {
+    deniedMsg.style.display = 'block';
+
+  } else {
+    deniedMsg.querySelector('h1').textContent       = 'Server Error';
+    deniedMsg.querySelector('.auth-sub').textContent = 'Something went wrong.';
+    deniedMsg.style.display = 'block';
+  }
+})();
+</script>
+
+<style>
+.load-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.load-brand {
+  font-size: 48px;
+  color: var(--accent);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .4; transform: scale(.95); }
+}
+.load-screen p {
+  color: var(--muted);
+  font-family: var(--font-b);
+  font-size: 14px;
+}
+</style>
+</body>
+</html>
