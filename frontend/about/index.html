@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About — Secure Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="page-page">
+  <nav class="page-nav">
+    <a href="/" class="brand">◆ SECURE WORKSPACE</a>
+    <div class="nav-right">
+      <a href="/">Home</a>
+      <a href="/workspace/">Workspace</a>
+      <a href="/login/" class="btn-primary btn-sm">Login</a>
+    </div>
+  </nav>
+
+  <div class="page-content">
+    <h1>About</h1>
+    <p class="lead">This system uses a split-architecture model: Netlify serves the public frontend while Render hosts the authenticated backend. Every protected page is independently verified server-side on each request.</p>
+
+    <div class="info-grid">
+      <div class="info-card">
+        <h3>How It Works</h3>
+        <p>When you access a protected page, the backend verifies your JWT cookie on every request. No page content is ever served without a valid, server-verified session.</p>
+      </div>
+      <div class="info-card">
+        <h3>Security Stack</h3>
+        <ul>
+          <li>Bcrypt password hashing</li>
+          <li>JWT in HttpOnly cookies</li>
+          <li>Automatic account lockout</li>
+          <li>Rate limiting & security headers</li>
+          <li>Full audit logging</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="cta-box">
+      <p>Login to access the full About page with authenticated content.</p>
+      <a href="/login/?redirect=/projects/about" class="btn-primary">Login to Access →</a>
+    </div>
+  </div>
+</div>
+<script src="/js/app.js"></script>
+</body>
+</html>
