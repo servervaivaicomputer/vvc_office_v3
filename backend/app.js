@@ -1,12 +1,12 @@
 require('dotenv').config();
 
-const express      = require('express');
-const helmet       = require('helmet');
-const cors         = require('cors');
-const cookieParser = require('cookie-parser');
-const mongoSanitize= require('express-mongo-sanitize');
-const hpp          = require('hpp');
-const rateLimit    = require('express-rate-limit');
+const express       = require('express');
+const helmet        = require('helmet');
+const cors          = require('cors');
+const cookieParser  = require('cookie-parser');
+const mongoSanitize = require('express-mongo-sanitize');
+const hpp           = require('hpp');
+const rateLimit     = require('express-rate-limit');
 const { connectDB, seedAdmin } = require('./database/database');
 
 const app  = express();
@@ -29,12 +29,12 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-/* ── CORS (only needed for fetch from frontend domain) ── */
+/* ── CORS — frontend domain allow + credentials ── */
 app.use(cors({
-  origin:      process.env.FRONTEND_URL || 'http://localhost:8080',
+  origin:      process.env.FRONTEND_URL || 'https://your-site.netlify.app',
   credentials: true,
-  methods:     ['GET','POST','PUT','DELETE'],
-  allowedHeaders: ['Content-Type','Authorization']
+  methods:     ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 /* ── Body parsers ── */
@@ -47,7 +47,12 @@ app.use(mongoSanitize());
 app.use(hpp());
 
 /* ── Global rate limit ── */
-app.use(rateLimit({ windowMs: 15*60*1000, max: 300, standardHeaders: true, legacyHeaders: false }));
+app.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max:      300,
+  standardHeaders: true,
+  legacyHeaders:   false
+}));
 
 /* ── Disable fingerprinting ── */
 app.disable('x-powered-by');
@@ -61,11 +66,17 @@ app.get('/health', (_req, res) => res.json({ status: 'ok', ts: new Date().toISOS
 
 /* ── 404 + Error ── */
 app.use((_req, res) => res.status(404).json({ error: 'Not found' }));
-app.use((err, _req, res, _next) => { console.error(err); res.status(500).json({ error: 'Server error' }); });
+app.use((err, _req, res, _next) => {
+  console.error(err);
+  res.status(500).json({ error: 'Server error' });
+});
 
 /* ── Start ── */
 (async () => {
   await connectDB();
   await seedAdmin();
   app.listen(PORT, () => console.log(`Server listening on :${PORT} [${process.env.NODE_ENV}]`));
-})().catch(e => { console.error('Startup failed:', e); process.exit(1); });
+})().catch(e => {
+  console.error('Startup failed:', e);
+  process.exit(1);
+});
