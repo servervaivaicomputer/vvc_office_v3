@@ -371,46 +371,6 @@ router.get('/pages/:pageName', authenticate, async function(req, res) {
   }
 });
 
-router.get('/pages/admin/panel', authenticate, async function(req, res) {
-  try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Admin only' });
-    }
-
-    var fp = path.join(__dirname, '..', 'admin', 'index.html');
-    if (!fs.existsSync(fp)) {
-      return res.status(404).json({ error: 'Not found' });
-    }
-
-    var html = fs.readFileSync(fp, 'utf8');
-    var backendUrl = req.protocol + '://' + req.get('host');
-    var authHeader = req.headers['authorization'] || '';
-    var authToken = authHeader.replace('Bearer ', '');
-
-    html = html.replace(/\{\{USERNAME\}\}/g, req.user.username);
-    html = html.replace(/\{\{FRONTEND_URL\}\}/g, process.env.FRONTEND_URL);
-    html = html.replace(/\{\{BACKEND_URL\}\}/g, backendUrl);
-    html = html.replace(/\{\{AUTH_TOKEN\}\}/g, authToken);
-
-    await logActivity({
-      userId: req.user._id,
-      username: req.user.username,
-      action: 'page_view',
-      page: 'admin',
-      ip: req.clientIP,
-      device: req.deviceInfo.name,
-      userAgent: req.deviceInfo.ua,
-      status: 'success'
-    });
-
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(html);
-  } catch (e) {
-    console.error('Admin panel err:', e);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
 /* ──────── ADMIN DASHBOARD ──────── */
 
 router.get('/admin/dashboard', authenticate, requireAdmin, async function(_req, res) {
