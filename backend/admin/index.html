@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Panel — Secure Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#08080c;--surface:#101018;--card:#15151f;--card2:#1a1a26;--accent:#00ff88;--accent2:#00cc6a;--text:#e4e4e8;--muted:#5a5a6e;--danger:#ff4757;--warning:#ffa502;--border:#1e1e2e;--font-h:'Syne',sans-serif;--font-b:'DM Mono',monospace;--sidebar:240px}
+body{background:var(--bg);color:var(--text);font-family:var(--font-b);font-size:13px;min-height:100vh;display:flex}
+a{color:var(--accent);text-decoration:none}
+
+/* Sidebar */
+.sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);height:100vh;position:fixed;top:0;left:0;display:flex;flex-direction:column;z-index:100}
+.sidebar .logo{padding:20px 20px 24px;font-family:var(--font-h);font-weight:700;font-size:15px;color:var(--accent);letter-spacing:.06em;border-bottom:1px solid var(--border)}
+.sidebar nav{flex:1;padding:12px 8px;overflow-y:auto}
+.sidebar nav a{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;color:var(--muted);font-size:13px;transition:.2s;margin-bottom:2px}
+.sidebar nav a:hover{color:var(--text);background:var(--card)}
+.sidebar nav a.active{color:var(--accent);background:var(--card);font-weight:500}
+.sidebar .foot{padding:16px;border-top:1px solid var(--border);font-size:12px;color:var(--muted)}
+
+/* Main */
+.main{margin-left:var(--sidebar);flex:1;min-height:100vh}
+.topbar{height:56px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:50}
+.topbar h2{font-family:var(--font-h);font-size:16px;font-weight:600}
+.topbar .user-info{display:flex;align-items:center;gap:10px;font-size:12px}
+.topbar .user-info .badge{background:var(--accent);color:#000;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.btn-sm{background:transparent;border:1px solid var(--muted);color:var(--muted);padding:4px 12px;border-radius:5px;font-family:var(--font-b);font-size:11px;cursor:pointer;transition:.2s}
+.btn-sm:hover{border-color:var(--danger);color:var(--danger)}
+.content{padding:24px;animation:fadeUp .4s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Tab panels */
+.panel{display:none}.panel.active{display:block}
+
+/* Stats cards */
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:24px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:16px;transition:.2s}
+.stat:hover{border-color:var(--accent)}
+.stat .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.stat .value{font-family:var(--font-h);font-size:28px;font-weight:700}
+.stat .sub{color:var(--muted);font-size:11px;margin-top:4px}
+
+/* Table */
+.tbl-wrap{overflow-x:auto;background:var(--card);border:1px solid var(--border);border-radius:8px;margin-bottom:20px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 12px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;vertical-align:middle}
+tr:hover td{background:var(--card2)}
+.badge-status{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:500}
+.badge-active{background:#00ff8822;color:var(--accent)}
+.badge-blocked{background:#ff475722;color:var(--danger)}
+.badge-inactive{background:#ffa50222;color:var(--warning)}
+.badge-admin{background:#6366f122;color:#a78bfa}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:6px;font-family:var(--font-b);font-size:11px;cursor:pointer;border:1px solid transparent;transition:.2s}
+.btn-primary{background:var(--accent);color:#000;border-color:var(--accent);font-weight:500}
+.btn-primary:hover{background:var(--accent2)}
+.btn-danger{background:var(--danger);color:#fff;border-color:var(--danger)}
+.btn-danger:hover{opacity:.8}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-outline:hover{border-color:var(--text);color:var(--text)}
+.btn-group{display:flex;gap:4px;flex-wrap:wrap}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;width:480px;max-width:95vw;max-height:85vh;overflow-y:auto;padding:24px}
+.modal h3{font-family:var(--font-h);font-size:18px;margin-bottom:16px}
+.modal label{display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;margin-top:12px}
+.modal input,.modal select{width:100%;padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-b);font-size:13px;outline:none;transition:.2s}
+.modal input:focus,.modal select:focus{border-color:var(--accent)}
+.modal .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:20px}
+.check-group{display:flex;gap:12px;flex-wrap:wrap;margin-top:4px}
+.check-group label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text);text-transform:none;letter-spacing:0}
+.check-group input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent)}
+
+/* Chart */
+.chart-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:20px}
+.chart-box h3{font-family:var(--font-h);font-size:15px;margin-bottom:12px}
+canvas{max-height:300px}
+
+/* Filters */
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.filters input,.filters select{padding:6px 10px;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--font-b);font-size:12px;outline:none}
+.filters input:focus,.filters select:focus{border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="logo">◆ ADMIN PANEL</div>
+  <nav>
+    <a href="#" data-tab="dashboard" class="active">◈ Dashboard</a>
+    <a href="#" data-tab="users">☰ Users</a>
+    <a href="#" data-tab="stats">▤ Page Stats</a>
+    <a href="#" data-tab="logs">▤ Activity Logs</a>
+    <a href="#" data-tab="devices">⊞ Devices</a>
+  </nav>
+  <div class="foot">Logged in as <strong>{{USERNAME}}</strong></div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="topbar">
+    <h2 id="pageTitle">Dashboard</h2>
+    <div class="user-info">
+      <span class="badge">ADMIN</span>
+      <button class="btn-sm" onclick="logout()">Logout</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- DASHBOARD -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="stats" id="dashStats"></div>
+      <div class="chart-box">
+        <h3>Page Views — Last 30 Days</h3>
+        <canvas id="dashChart"></canvas>
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Page</th><th>IP</th><th>Status</th></tr></thead>
+        <tbody id="recentBody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="panel" id="panel-users">
+      <div class="filters">
+        <button class="btn btn-primary" onclick="openCreateUser()">+ New User</button>
+        <input type="text" id="userSearch" placeholder="Search username…" oninput="filterUsers()">
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Username</th><th>Role</th><th>Status</th><th>Page Access</th><th>Failed Attempts</th><th>Last Login</th><th>Last IP</th><th>Actions</th></tr></thead>
+        <tbody id="usersBody"></tbody></table>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="panel" id="panel-stats">
+      <div class="stats" id="pageStats"></div>
+      <div class="chart-box">
+        <h3>Daily Views by Page</h3>
+        <canvas id="pageChart"></canvas>
+      </div>
+    </div>
+
+    <!-- LOGS -->
+    <div class="panel" id="panel-logs">
+      <div class="filters">
+        <select id="logAction" onchange="loadLogs()"><option value="">All Actions</option><option>login</option><option>logout</option><option>page_view</option><option>login_failed</option><option>blocked</option><option>unblocked</option><option>user_created</option><option>user_deleted</option></select>
+        <select id="logStatus" onchange="loadLogs()"><option value="">All Status</option><option>success</option><option>failure</option><option>blocked</option></select>
+        <input type="text" id="logUser" placeholder="Username…" oninput="debounceLogs()">
+        <button class="btn btn-outline" onclick="loadLogs()">Refresh</button>
+      </div>
+      <div class="tbl-wrap">
+        <table><thead><tr><th>Timestamp</th><th>User</th><th>Action</th><th>Page</th><th>Device</th><th>IP</th><th>Status</th><th>Details</th></tr></thead>
+        <tbody id="logsBody"></tbody></table>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-outline" id="logPrev" onclick="logsPage(-1)">← Prev</button>
+        <span id="logPageInfo" style="line-height:30px;font-size:12px;color:var(--muted)"></span>
+        <button class="btn btn-outline" id="logNext" onclick="logsPage(1)">Next →</button>
+      </div>
+    </div>
+
+    <!-- DEVICES -->
+    <div class="panel" id="panel-devices">
+      <div class="tbl-wrap">
+        <table><thead><tr><th>User</th><th>Device</th><th>IP</th><th>First Seen</th><th>Last Seen</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="devicesBody"></tbody></table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<script>
+/* ─── State ─── */
+let allUsers = [], logOffset = 0, logTotal = 0;
+const PAGE_SIZE = 50;
+
+/* ─── API helper ─── */
+const api = async (path, opts = {}) => {
+  const r = await fetch(path, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts });
+  if (r.status === 401) { window.location.href = '{{FRONTEND_URL}}/login/'; return null; }
+  return r.json();
+};
+
+/* ─── Navigation ─── */
+document.querySelectorAll('[data-tab]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('[data-tab]').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('panel-' + a.dataset.tab).classList.add('active');
+    document.getElementById('pageTitle').textContent = a.textContent.trim();
+    if (a.dataset.tab === 'dashboard') loadDashboard();
+    if (a.dataset.tab === 'users') loadUsers();
+    if (a.dataset.tab === 'stats') loadPageStats();
+    if (a.dataset.tab === 'logs') loadLogs();
+    if (a.dataset.tab === 'devices') loadDevices();
+  });
+});
+
+/* ─── Dashboard ─── */
+async function loadDashboard() {
+  const d = await api('/api/admin/dashboard');
+  if (!d) return;
+  const s = d.stats;
+  document.getElementById('dashStats').innerHTML = `
+    <div class="stat"><div class="label">Total Users</div><div class="value">${s.totalUsers}</div></div>
+    <div class="stat"><div class="label">Active Today</div><div class="value">${s.activeToday}</div></div>
+    <div class="stat"><div class="label">Blocked</div><div class="value">${s.blockedUsers}</div><div class="sub" style="color:var(--danger)">${s.failsToday} fails today</div></div>
+    <div class="stat"><div class="label">Views Today</div><div class="value">${s.viewsToday}</div></div>
+    <div class="stat"><div class="label">Views 7d</div><div class="value">${s.views7}</div></div>
+    <div class="stat"><div class="label">Views 30d</div><div class="value">${s.views30}</div></div>
+    <div class="stat"><div class="label">Logins Today</div><div class="value">${s.loginsToday}</div></div>
+  `;
+  const tb = document.getElementById('recentBody');
+  tb.innerHTML = d.recent.map(l => `<tr><td>${fmt(l.timestamp)}</td><td>${l.username||'—'}</td><td>${l.action}</td><td>${l.page||'—'}</td><td>${l.ip||'—'}</td><td>${statusBadge(l.status)}</td></tr>`).join('');
+
+  // Chart
+  const ps = await api('/api/admin/stats/pages');
+  if (!ps) return;
+  renderDashChart(ps.daily);
+}
+
+let dashChartInst = null;
+function renderDashChart(daily) {
+  const labels = [...new Set(daily.map(d => d._id.date))].sort();
+  const pages = ['home','about','workspace'];
+  const colors = ['#00ff88','#6366f1','#ffa502'];
+  const datasets = pages.map((p, i) => ({
+    label: p, data: labels.map(l => { const m = daily.find(d => d._id.date === l && d._id.page === p); return m ? m.count : 0; }),
+    borderColor: colors[i], backgroundColor: colors[i] + '22', tension: .4, fill: true
+  }));
+  if (dashChartInst) dashChartInst.destroy();
+  dashChartInst = new Chart(document.getElementById('dashChart'), {
+    type: 'line', data: { labels, datasets },
+    options: { responsive: true, plugins: { legend: { labels: { color: '#5a5a6e', font: { family: 'DM Mono' } } } }, scales: { x: { ticks: { color: '#5a5a6e' }, grid: { color: '#1e1e2e' } }, y: { ticks: { color: '#5a5a6e' }, grid: { color: '#1e1e2e' }, beginAtZero: true } } }
+  });
+}
+
+/* ─── Users ─── */
+async function loadUsers() {
+  const d = await api('/api/admin/users');
+  if (!d) return;
+  allUsers = d.users;
+  renderUsers(allUsers);
+}
+function filterUsers() {
+  const q = document.getElementById('userSearch').value.toLowerCase();
+  renderUsers(allUsers.filter(u => u.username.includes(q)));
+}
+function renderUsers(users) {
+  document.getElementById('usersBody').innerHTML = users.map(u => `<tr>
+    <td><strong>${u.username}</strong></td>
+    <td>${u.role === 'admin' ? '<span class="badge-status badge-admin">admin</span>' : 'user'}</td>
+    <td>${statusBadge(u.loginStatus)}</td>
+    <td>${(u.pageAccess||[]).join(', ') || '—'}</td>
+    <td>${u.failedLoginAttempts || 0}</td>
+    <td>${fmt(u.lastLogin)}</td>
+    <td>${u.lastLoginIP || '—'}</td>
+    <td class="btn-group">
+      <button class="btn btn-outline" onclick="viewUser('${u._id}')">View</button>
+      <button class="btn btn-outline" onclick="editAccess('${u._id}')">Access</button>
+      ${u.isBlocked
+        ? `<button class="btn btn-primary" onclick="unblockUser('${u._id}')">Unblock</button>`
+        : `<button class="btn btn-danger" onclick="blockUser('${u._id}')">Block</button>`}
+      ${u.role !== 'admin' ? `<button class="btn btn-danger" onclick="deleteUser('${u._id}','${u.username}')">✕</button>` : ''}
+    </td>
+  </tr>`).join('');
+}
+
+async function viewUser(id) {
+  const d = await api('/api/admin/users/' + id);
+  if (!d) return;
+  const u = d.user;
+  openModal(`<h3>User: ${u.username}</h3>
+    <p><strong>Role:</strong> ${u.role} &nbsp; <strong>Status:</strong> ${u.loginStatus} &nbsp; <strong>Blocked:</strong> ${u.isBlocked ? 'Yes ('+u.blockedBy+')' : 'No'}</p>
+    <p><strong>Page Access:</strong> ${(u.pageAccess||[]).join(', ') || 'none'}</p>
+    <p><strong>Failed Attempts:</strong> ${u.failedLoginAttempts} &nbsp; <strong>Last Login:</strong> ${fmt(u.lastLogin)}</p>
+    <p><strong>Last IP:</strong> ${u.lastLoginIP||'—'} &nbsp; <strong>Last Device:</strong> ${u.lastLoginDevice||'—'}</p>
+    <p><strong>Devices:</strong> ${u.devices.length}</p>
+    <div class="tbl-wrap" style="margin-top:12px;max-height:200px;overflow:auto"><table><thead><tr><th>Device</th><th>IP</th><th>First Seen</th><th>Last Seen</th><th>Blocked</th></tr></thead>
+    <tbody>${u.devices.map(d=>`<tr><td>${d.name}</td><td>${d.ip}</td><td>${fmt(d.firstSeen)}</td><td>${fmt(d.lastSeen)}</td><td>${d.isBlocked?'<span style="color:var(--danger)">Yes</span>':'No'}</td></tr>`).join('')}</tbody></table></div>
+    <h3 style="margin-top:16px">Recent Activity</h3>
+    <div class="tbl-wrap" style="max-height:200px;overflow:auto"><table><thead><tr><th>Time</th><th>Action</th><th>Page</th><th>Status</th></tr></thead>
+    <tbody>${d.logs.slice(0,20).map(l=>`<tr><td>${fmt(l.timestamp)}</td><td>${l.action}</td><td>${l.page||'—'}</td><td>${statusBadge(l.status)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="actions"><button class="btn btn-outline" onclick="closeModal()">Close</button></div>`);
+}
+
+function editAccess(id) {
+  const u = allUsers.find(x => x._id === id);
+  if (!u) return;
+  const pages = ['home','about','workspace'];
+  openModal(`<h3>Edit Access: ${u.username}</h3>
+    <label>Page Access</label>
+    <div class="check-group">${pages.map(p => `<label><input type="checkbox" name="pa" value="${p}" ${(u.pageAccess||[]).includes(p)?'checked':''}> ${p}</label>`).join('')}</div>
+    <label>Role</label>
+    <select id="mRole"><option value="user" ${u.role==='user'?'selected':''}>user</option><option value="admin" ${u.role==='admin'?'selected':''}>admin</option></select>
+    <label>New Password (leave blank to keep)</label>
+    <input type="password" id="mPass" placeholder="••••••••">
+    <div class="actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAccess('${id}')">Save</button>
+    </div>`);
+}
+async function saveAccess(id) {
+  const pa = [...document.querySelectorAll('input[name=pa]:checked')].map(c => c.value);
+  const role = document.getElementById('mRole').value;
+  const pass = document.getElementById('mPass').value;
+  const body = { role, pageAccess: pa };
+  if (pass && pass.length >= 8) body.password = pass;
+  await api('/api/admin/users/' + id, { method: 'PUT', body: JSON.stringify(body) });
+  closeModal(); loadUsers();
+}
+
+async function blockUser(id) {
+  const reason = prompt('Block reason (optional):');
+  await api('/api/admin/users/' + id + '/block', { method: 'POST', body: JSON.stringify({ reason: reason || '' }) });
+  loadUsers();
+}
+async function unblockUser(id) {
+  await api('/api/admin/users/' + id + '/unblock', { method: 'POST' });
+  loadUsers();
+}
+async function deleteUser(id, name) {
+  if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+  await api('/api/admin/users/' + id, { method: 'DELETE' });
+  loadUsers();
+}
+
+function openCreateUser() {
+  openModal(`<h3>Create New User</h3>
+    <label>Username</label><input type="text" id="cUser" placeholder="username">
+    <label>Password</label><input type="password" id="cPass" placeholder="min 8 chars">
+    <label>Role</label><select id="cRole"><option value="user">user</option><option value="admin">admin</option></select>
+    <label>Page Access</label>
+    <div class="check-group">${['home','about','workspace'].map(p=>`<label><input type="checkbox" name="cpa" value="${p}"> ${p}</label>`).join('')}</div>
+    <div class="actions">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="createUser()">Create</button>
+    </div>`);
+}
+async function createUser() {
+  const username = document.getElementById('cUser').value.trim();
+  const password = document.getElementById('cPass').value;
+  const role = document.getElementById('cRole').value;
+  const pageAccess = [...document.querySelectorAll('input[name=cpa]:checked')].map(c => c.value);
+  if (!username || password.length < 8) { alert('Username required + password min 8 chars'); return; }
+  const d = await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ username, password, role, pageAccess }) });
+  if (d && d.error) alert(d.error);
+  closeModal(); loadUsers();
+}
+
+/* ─── Page Stats ─── */
+async function loadPageStats() {
+  const d = await api('/api/admin/stats/pages');
+  if (!d) return;
+  const pages = ['home','about','workspace'];
+  const icons = { home: '⌂', about: '◈', workspace: '⊞' };
+  document.getElementById('pageStats').innerHTML = pages.map(p => `
+    <div class="stat"><div class="label">${icons[p]} ${p} — Today</div><div class="value">${d.stats[p].today}</div><div class="sub">7d: ${d.stats[p].sevenDay} · 30d: ${d.stats[p].thirtyDay}</div></div>
+  `).join('');
+  // Chart
+  const labels = [...new Set(d.daily.map(x => x._id.date))].sort();
+  const colors = { home: '#00ff88', about: '#6366f1', workspace: '#ffa502' };
+  const datasets = pages.map(p => ({
+    label: p, data: labels.map(l => { const m = d.daily.find(x => x._id.date === l && x._id.page === p); return m ? m.count : 0; }),
+    backgroundColor: colors[p] + '88', borderColor: colors[p], borderWidth: 1
+  }));
+  if (window._pageChart) window._pageChart.destroy();
+  window._pageChart = new Chart(document.getElementById('pageChart'), {
+    type: 'bar', data: { labels, datasets },
+    options: { responsive: true, plugins: { legend: { labels: { color: '#5a5a6e', font: { family: 'DM Mono' } } } }, scales: { x: { stacked: true, ticks: { color: '#5a5a6e' }, grid: { color: '#1e1e2e' } }, y: { stacked: true, ticks: { color: '#5a5a6e' }, grid: { color: '#1e1e2e' }, beginAtZero: true } } }
+  });
+}
+
+/* ─── Logs ─── */
+let logTimer;
+function debounceLogs() { clearTimeout(logTimer); logTimer = setTimeout(loadLogs, 400); }
+async function loadLogs() {
+  const params = new URLSearchParams();
+  const action = document.getElementById('logAction').value;
+  const status = document.getElementById('logStatus').value;
+  const user   = document.getElementById('logUser').value;
+  if (action) params.set('action', action);
+  if (status) params.set('status', status);
+  if (user)   params.set('username', user);
+  params.set('limit', PAGE_SIZE);
+  params.set('offset', logOffset);
+  const d = await api('/api/admin/logs?' + params);
+  if (!d) return;
+  logTotal = d.total;
+  document.getElementById('logsBody').innerHTML = d.logs.map(l => `<tr>
+    <td>${fmt(l.timestamp)}</td><td>${l.username||'—'}</td><td>${l.action}</td><td>${l.page||'—'}</td>
+    <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(l.device||'').replace(/"/g,'&quot;')}">${l.device||'—'}</td>
+    <td>${l.ip||'—'}</td><td>${statusBadge(l.status)}</td><td style="max-width:180px;overflow:hidden;text-overflow:ellipsis">${l.details||'—'}</td>
+  </tr>`).join('');
+  document.getElementById('logPageInfo').textContent = `${logOffset+1}–${Math.min(logOffset+PAGE_SIZE, logTotal)} of ${logTotal}`;
+  document.getElementById('logPrev').disabled = logOffset === 0;
+  document.getElementById('logNext').disabled = logOffset + PAGE_SIZE >= logTotal;
+}
+function logsPage(dir) { logOffset = Math.max(0, logOffset + dir * PAGE_SIZE); loadLogs(); }
+
+/* ─── Devices ─── */
+async function loadDevices() {
+  const d = await api('/api/admin/devices');
+  if (!d) return;
+  document.getElementById('devicesBody').innerHTML = d.devices.map(dev => `<tr>
+    <td>${dev.username}</td><td>${dev.name}</td><td>${dev.ip}</td><td>${fmt(dev.firstSeen)}</td><td>${fmt(dev.lastSeen)}</td>
+    <td>${dev.isBlocked ? '<span class="badge-status badge-blocked">Blocked</span>' : '<span class="badge-status badge-active">Active</span>'}</td>
+    <td class="btn-group">
+      ${dev.isBlocked
+        ? `<button class="btn btn-primary" onclick="devAction('${dev.userId}','${dev.deviceId}','unblock')">Unblock</button>`
+        : `<button class="btn btn-danger" onclick="devAction('${dev.userId}','${dev.deviceId}','block')">Block</button>`}
+    </td>
+  </tr>`).join('');
+}
+async function devAction(uid, did, action) {
+  await api(`/api/admin/devices/${uid}/${did}/${action}`, { method: 'POST' });
+  loadDevices();
+}
+
+/* ─── Helpers ─── */
+function fmt(d) { if (!d) return '—'; const dt = new Date(d); return dt.toLocaleDateString('en-US', { month:'short', day:'numeric' }) + ' ' + dt.toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit' }); }
+function statusBadge(s) {
+  const cls = { active:'badge-active', success:'badge-active', blocked:'badge-blocked', failure:'badge-blocked', inactive:'badge-inactive' };
+  return `<span class="badge-status ${cls[s]||'badge-inactive'}">${s||'—'}</span>`;
+}
+function openModal(html) { document.getElementById('modalContent').innerHTML = html; document.getElementById('modalOverlay').classList.add('open'); }
+function closeModal() { document.getElementById('modalOverlay').classList.remove('open'); }
+document.getElementById('modalOverlay').addEventListener('click', e => { if (e.target === e.currentTarget) closeModal(); });
+
+async function logout() { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); window.location.href = '{{FRONTEND_URL}}'; }
+
+/* ─── Init ─── */
+loadDashboard();
+</script>
+</body>
+</html>
