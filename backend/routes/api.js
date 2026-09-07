@@ -281,6 +281,7 @@ router.get('/admin/dashboard', authenticate, requireAdmin, async function(_req, 
 router.get('/admin/users', authenticate, requireAdmin, async function(_req, res) {
   try {
     var result = await supabase.from('users').select('id, username, roleexact', head: true }).eq('is_blocked', true);
+    var r2 = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('is_blocked', true);
     var r3 = await supabase.from(', page_access, is_blocked, blocked_by, blocked_at, blocked_reason, failed_login_attempts, last_failed_attempt, last_login, last_login_ip, last_login_device, login_status, created_at, updated_at').order('created_at', { ascending: false });
     res.json({ users: result.data || [] });
   } catch (e) {
