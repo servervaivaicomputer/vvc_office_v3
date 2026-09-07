@@ -9,44 +9,108 @@
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<div class="page-page">
-  <nav class="page-nav">
-    <a href="/" class="brand">◆ SECURE WORKSPACE</a>
-    <div class="nav-right">
-      <a href="/">Home</a>
-      <a href="/about/">About</a>
-      <a href="/login/" class="btn-primary btn-sm">Login</a>
-    </div>
-  </nav>
 
-  <div class="page-content">
-    <h1>Workspace</h1>
-    <p class="lead">A secure collaborative environment for your team. Access project boards, document management, code repositories, and analytics — all behind authenticated access.</p>
+<!-- Loading state -->
+<div id="loading" class="load-screen">
+  <div class="load-brand">◆</div>
+  <p>Verifying access…</p>
+</div>
 
-    <div class="info-grid">
-      <div class="info-card">
-        <h3>⊞ Tools Included</h3>
-        <ul>
-          <li>Project board & task tracking</li>
-          <li>Document hub with version control</li>
-          <li>Integrated code repository</li>
-          <li>Analytics console</li>
-          <li>Encrypted team chat</li>
-          <li>API playground</li>
-        </ul>
-      </div>
-      <div class="info-card">
-        <h3>◆ Access Control</h3>
-        <p>Workspace access is granted per-user by administrators. Your permissions are checked on every single request — there is no client-side-only gate.</p>
-      </div>
-    </div>
+<!-- Backend থেকে protected content এখানে inject হবে -->
+<div id="protectedContent" style="display:none"></div>
 
-    <div class="cta-box">
-      <p>Login to access the full Workspace with all tools and features.</p>
-      <a href="/login/?redirect=/projects/workspace" class="btn-primary">Login to Access →</a>
+<!-- Login required -->
+<div id="loginRequired" style="display:none">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-brand">◆ SECURE WORKSPACE</div>
+      <h1>Authentication Required</h1>
+      <p class="auth-sub">You need to log in to access the Workspace.</p>
+      <a href="/login/?redirect=/workspace" class="btn-primary full">Login →</a>
     </div>
   </div>
 </div>
+
+<!-- Access denied -->
+<div id="accessDenied" style="display:none">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-brand">◆ SECURE WORKSPACE</div>
+      <h1 style="color:var(--danger)">403 — Access Denied</h1>
+      <p class="auth-sub">You don't have permission to view this page. Contact your administrator.</p>
+      <a href="/" class="btn-primary full">← Back to Home</a>
+    </div>
+  </div>
+</div>
+
 <script src="/js/app.js"></script>
+<script>
+(async function() {
+  const loading   = document.getElementById('loading');
+  const content   = document.getElementById('protectedContent');
+  const loginMsg  = document.getElementById('loginRequired');
+  const deniedMsg = document.getElementById('accessDenied');
+
+  /* Token নেই → login page দেখাও */
+  if (!Auth.isLoggedIn()) {
+    loading.style.display  = 'none';
+    loginMsg.style.display = 'block';
+    return;
+  }
+
+  /* Backend থেকে protected content fetch করো */
+  const result = await Auth.fetchPage('workspace');
+
+  loading.style.display = 'none';
+
+  if (result.status === 200) {
+    content.innerHTML = result.html;
+    content.style.display = 'block';
+
+    content.querySelectorAll('script').forEach(oldScript => {
+      const newScript = document.createElement('script');
+      newScript.textContent = oldScript.textContent;
+      document.body.appendChild(newScript);
+    });
+
+  } else if (result.status === 401) {
+    Auth.clearToken();
+    loginMsg.style.display = 'block';
+
+  } else if (result.status === 403) {
+    deniedMsg.style.display = 'block';
+
+  } else {
+    deniedMsg.querySelector('h1').textContent      = 'Server Error';
+    deniedMsg.querySelector('.auth-sub').textContent = 'Something went wrong. Please try again.';
+    deniedMsg.style.display = 'block';
+  }
+})();
+</script>
+
+<style>
+.load-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.load-brand {
+  font-size: 48px;
+  color: var(--accent);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .4; transform: scale(.95); }
+}
+.load-screen p {
+  color: var(--muted);
+  font-family: var(--font-b);
+  font-size: 14px;
+}
+</style>
 </body>
 </html>
