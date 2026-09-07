@@ -9,43 +9,110 @@
 <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-<div class="page-page">
-  <nav class="page-nav">
-    <a href="/" class="brand">◆ SECURE WORKSPACE</a>
-    <div class="nav-right">
-      <a href="/">Home</a>
-      <a href="/workspace/">Workspace</a>
-      <a href="/login/" class="btn-primary btn-sm">Login</a>
-    </div>
-  </nav>
 
-  <div class="page-content">
-    <h1>About</h1>
-    <p class="lead">This system uses a split-architecture model: Netlify serves the public frontend while Render hosts the authenticated backend. Every protected page is independently verified server-side on each request.</p>
+<!-- Loading state -->
+<div id="loading" class="load-screen">
+  <div class="load-brand">◆</div>
+  <p>Verifying access…</p>
+</div>
 
-    <div class="info-grid">
-      <div class="info-card">
-        <h3>How It Works</h3>
-        <p>When you access a protected page, the backend verifies your JWT cookie on every request. No page content is ever served without a valid, server-verified session.</p>
-      </div>
-      <div class="info-card">
-        <h3>Security Stack</h3>
-        <ul>
-          <li>Bcrypt password hashing</li>
-          <li>JWT in HttpOnly cookies</li>
-          <li>Automatic account lockout</li>
-          <li>Rate limiting & security headers</li>
-          <li>Full audit logging</li>
-        </ul>
-      </div>
-    </div>
+<!-- Backend থেকে protected content এখানে inject হবে -->
+<div id="protectedContent" style="display:none"></div>
 
-    <div class="cta-box">
-      <p>Login to access the full About page with authenticated content.</p>
-      <a href="/login/?redirect=/projects/about" class="btn-primary">Login to Access →</a>
+<!-- Login required -->
+<div id="loginRequired" style="display:none">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-brand">◆ SECURE WORKSPACE</div>
+      <h1>Authentication Required</h1>
+      <p class="auth-sub">You need to log in to access the About page.</p>
+      <a href="/login/?redirect=/about" class="btn-primary full">Login →</a>
     </div>
   </div>
 </div>
+
+<!-- Access denied -->
+<div id="accessDenied" style="display:none">
+  <div class="auth-page">
+    <div class="auth-card">
+      <div class="auth-brand">◆ SECURE WORKSPACE</div>
+      <h1 style="color:var(--danger)">403 — Access Denied</h1>
+      <p class="auth-sub">You don't have permission to view this page. Contact your administrator.</p>
+      <a href="/" class="btn-primary full">← Back to Home</a>
+    </div>
+  </div>
+</div>
+
 <script src="/js/app.js"></script>
+<script>
+(async function() {
+  const loading   = document.getElementById('loading');
+  const content   = document.getElementById('protectedContent');
+  const loginMsg  = document.getElementById('loginRequired');
+  const deniedMsg = document.getElementById('accessDenied');
+
+  /* Token নেই → login page দেখাও */
+  if (!Auth.isLoggedIn()) {
+    loading.style.display  = 'none';
+    loginMsg.style.display = 'block';
+    return;
+  }
+
+  /* Backend থেকে protected content fetch করো */
+  const result = await Auth.fetchPage('about');
+
+  loading.style.display = 'none';
+
+  if (result.status === 200) {
+    /* Backend থেকে HTML পেয়েছি — inject করো */
+    content.innerHTML = result.html;
+    content.style.display = 'block';
+
+    /* Backend HTML-এর scripts execute করো */
+    content.querySelectorAll('script').forEach(oldScript => {
+      const newScript = document.createElement('script');
+      newScript.textContent = oldScript.textContent;
+      document.body.appendChild(newScript);
+    });
+
+  } else if (result.status === 401) {
+    Auth.clearToken();
+    loginMsg.style.display = 'block';
+
+  } else if (result.status === 403) {
+    deniedMsg.style.display = 'block';
+
+  } else {
+    deniedMsg.querySelector('h1').textContent      = 'Server Error';
+    deniedMsg.querySelector('.auth-sub').textContent = 'Something went wrong. Please try again.';
+    deniedMsg.style.display = 'block';
+  }
+})();
+</script>
+
+<style>
+.load-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.load-brand {
+  font-size: 48px;
+  color: var(--accent);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: .4; transform: scale(.95); }
+}
+.load-screen p {
+  color: var(--muted);
+  font-family: var(--font-b);
+  font-size: 14px;
+}
+</style>
 </body>
 </html>
