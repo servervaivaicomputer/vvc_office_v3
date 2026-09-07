@@ -371,6 +371,37 @@ router.get('/pages/:pageName', authenticate, async function(req, res) {
   }
 });
 
+/* ──────── ADMIN PANEL HTML API ──────── */
+
+router.get('/admin/panel-content', authenticate, async function(req, res) {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+
+    var fp = path.join(__dirname, '..', 'admin', 'index.html');
+    if (!fs.existsSync(fp)) {
+      return res.status(404).json({ error: 'Admin panel not found' });
+    }
+
+    var html = fs.readFileSync(fp, 'utf8');
+    var backendUrl = req.protocol + '://' + req.get('host');
+    var authHeader = req.headers['authorization'] || '';
+    var authToken = authHeader.replace('Bearer ', '');
+
+    html = html.replace(/\{\{USERNAME\}\}/g, req.user.username);
+    html = html.replace(/\{\{FRONTEND_URL\}\}/g, process.env.FRONTEND_URL || '');
+    html = html.replace(/\{\{BACKEND_URL\}\}/g, backendUrl);
+    html = html.replace(/\{\{AUTH_TOKEN\}\}/g, authToken);
+
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (e) {
+    console.error('Admin panel err:', e);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 /* ──────── ADMIN DASHBOARD ──────── */
 
 router.get('/admin/dashboard', authenticate, requireAdmin, async function(_req, res) {
@@ -416,11 +447,7 @@ router.get('/admin/dashboard', authenticate, requireAdmin, async function(_req, 
     var r7 = await supabase
       .from('audit_logs')
       .select('id', { count: 'exact', head: true })
-      .eq('action', 'login')
-      .gte('timestamp', today);
-
-    var r8 = await supabase
-      .from('audit_logs')
+      .eq(' .from('audit_logs')
       .select('id', { count: 'exact', head: true })
       .eq('action', 'login_failed')
       .gte('timestamp', today);
@@ -434,7 +461,11 @@ router.get('/admin/dashboard', authenticate, requireAdmin, async function(_req, 
     var todayLogins = r3.data || [];
     var userIds = todayLogins.map(function(l) { return l.user_id; });
     var uniqueIds = [];
-    for (var i = 0; i < userIds.length; i++) {
+    foraction', 'login')
+      .gte('timestamp', today);
+
+    var r8 = await supabase
+      (var i = 0; i < userIds.length; i++) {
       if (uniqueIds.indexOf(userIds[i]) === -1) {
         uniqueIds.push(userIds[i]);
       }
@@ -609,42 +640,7 @@ router.put('/admin/users/:id', authenticate, requireAdmin, async function(req, r
       username: req.user.username,
       action: 'access_granted',
       ip: req.clientIP,
-      device: req.deviceInfo.name,
-      userAgent: req.deviceInfo.ua,
-      details: 'Updated ' + result.data.username
-    });
-
-    res.json({ success: true, user: result.data });
-  } catch (e) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-router.delete('/admin/users/:id', authenticate, requireAdmin, async function(req, res) {
-  try {
-    var userResult = await supabase
-      .from('users')
-      .select('username, role')
-      .eq('id', req.params.id)
-      .single();
-
-    if (!userResult.data) {
-      return res.status(404).json({ error: 'Not found' });
-    }
-    if (userResult.data.role === 'admin') {
-      return res.status(400).json({ error: 'Cannot delete admin.' });
-    }
-
-    await supabase
-      .from('users')
-      .delete()
-      .eq('id', req.params.id);
-
-    await logActivity({
-      userId: req.user._id,
-      username: req.user.username,
-      action: 'user_deleted',
-      ip: req.clientIP,
+     IP,
       device: req.deviceInfo.name,
       userAgent: req.deviceInfo.ua,
       details: 'Deleted ' + userResult.data.username
@@ -683,7 +679,42 @@ router.post('/admin/users/:id/block', authenticate, requireAdmin, async function
       action: 'blocked',
       ip: req.clientIP,
       device: req.deviceInfo.name,
+      userAgent: req.deviceInfo', req.params.id)
+      .single();
+
+    if (!userResult.data) {
+      return res.status(40 device: req.deviceInfo.name,
       userAgent: req.deviceInfo.ua,
+      details: 'Updated ' + result.data.username
+    });
+
+    res.json({ success: true, user: result.data });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.delete('/admin/users/:id', authenticate, requireAdmin, async function(req, res) {
+  try {
+    var userResult = await supabase
+      .from('users')
+      .select('username, role')
+      .eq('id4).json({ error: 'Not found' });
+    }
+    if (userResult.data.role === 'admin') {
+      return res.status(400).json({ error: 'Cannot delete admin.' });
+    }
+
+    await supabase
+      .from('users')
+      .delete()
+      .eq('id', req.params.id);
+
+    await logActivity({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'user_deleted',
+      ip: req.client.ua,
       details: 'Blocked ' + name
     });
 
@@ -817,7 +848,8 @@ router.get('/admin/stats/pages', authenticate, requireAdmin, async function(_req
         .select('id', { count: 'exact', head: true })
         .eq('action', 'page_view')
         .eq('page', p)
-        .gte('timestamp', today);
+       .limit;
+    var off = req.query .gte('timestamp', today);
 
       var wResult = await supabase
         .from('audit_logs')
@@ -849,38 +881,7 @@ router.get('/admin/stats/pages', authenticate, requireAdmin, async function(_req
 
     var dailyMap = {};
     var raw = rawResult.data || [];
-    for (var j = 0; j < raw.length; j++) {
-      var r = raw[j];
-      var date = r.timestamp.substring(0, 10);
-      var key = date + '_' + r.page;
-      if (!dailyMap[key]) {
-        dailyMap[key] = { date: date, page: r.page, count: 0 };
-      }
-      dailyMap[key].count++;
-    }
-
-    var daily = [];
-    var keys = Object.keys(dailyMap);
-    for (var k = 0; k < keys.length; k++) {
-      daily.push(dailyMap[keys[k]]);
-    }
-
-    res.json({ stats: stats, daily: daily });
-  } catch (e) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-/* ──────── ADMIN LOGS ──────── */
-
-router.get('/admin/logs', authenticate, requireAdmin, async function(req, res) {
-  try {
-    var action = req.query.action;
-    var username = req.query.username;
-    var page = req.query.page;
-    var status = req.query.status;
-    var lim = req.query.limit;
-    var off = req.query.offset;
+    for (var j = 0; j < raw.length; j.offset;
 
     var limit = Math.min(parseInt(lim) || 100, 500);
     var offset = parseInt(off) || 0;
@@ -935,7 +936,37 @@ router.get('/admin/devices', authenticate, requireAdmin, async function(_req, re
       });
     }
 
-    res.json({ devices: all });
+    res.json({ devices:++) {
+      var r = raw[j];
+      var date = r.timestamp.substring(0, 10);
+      var key = date + '_' + r.page;
+      if (!dailyMap[key]) {
+        dailyMap[key] = { date: date, page: r.page, count: 0 };
+      }
+      dailyMap[key].count++;
+    }
+
+    var daily = [];
+    var keys = Object.keys(dailyMap);
+    for (var k = 0; k < keys.length; k++) {
+      daily.push(dailyMap[keys[k]]);
+    }
+
+    res.json({ stats: stats, daily: daily });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/* ──────── ADMIN LOGS ──────── */
+
+router.get('/admin/logs', authenticate, requireAdmin, async function(req, res) {
+  try {
+    var action = req.query.action;
+    var username = req.query.username;
+    var page = req.query.page;
+    var status = req.query.status;
+    var lim = req.query all });
   } catch (e) {
     res.status(500).json({ error: 'Server error' });
   }
