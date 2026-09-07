@@ -236,7 +236,8 @@ router.get('/admin/dashboard', authenticate, requireAdmin, async function(_req, 
     var d30 = new Date(now - 30 * 864e5).toISOString();
 
     var r1 = await supabase.from('users').select('id', { count: 'exact', head: true });
-    var r2 = await supabase.from('users').select('id', { count: 'audit_logs').select('user_id', { count: 'exact' }).eq('action', 'login').gte('timestamp', today);
+    var r2 = await supabase.from('users').select('id', { count: 'exact', head: true }).eq('is_blocked', true);
+    var r3 = await supabase.from('audit_logs').select('user_id', { count: 'exact' }).eq('action', 'login').gte('timestamp', today);
     var r4 = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'page_view').gte('timestamp', today);
     var r5 = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'page_view').gte('timestamp', d7);
     var r6 = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'page_view').gte('timestamp', d30);
