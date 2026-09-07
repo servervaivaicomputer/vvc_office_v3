@@ -4,8 +4,6 @@ const express       = require('express');
 const helmet        = require('helmet');
 const cors          = require('cors');
 const cookieParser  = require('cookie-parser');
-const mongoSanitize = require('express-mongo-sanitize');
-const hpp           = require('hpp');
 const rateLimit     = require('express-rate-limit');
 const { connectDB, seedAdmin } = require('./database/database');
 
@@ -29,7 +27,7 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-/* ── CORS — frontend domain allow + credentials ── */
+/* ── CORS ── */
 app.use(cors({
   origin:      process.env.FRONTEND_URL || 'https://your-site.netlify.app',
   credentials: true,
@@ -42,8 +40,8 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 app.use(cookieParser());
 
-/* ── NoSQL injection & HPP ── */
-app.use(mongoSanitize());
+/* ── HPP ── */
+const hpp = require('hpp');
 app.use(hpp());
 
 /* ── Global rate limit ── */
@@ -54,7 +52,6 @@ app.use(rateLimit({
   legacyHeaders:   false
 }));
 
-/* ── Disable fingerprinting ── */
 app.disable('x-powered-by');
 
 /* ── Routes ── */
@@ -75,7 +72,7 @@ app.use((err, _req, res, _next) => {
 (async () => {
   await connectDB();
   await seedAdmin();
-  app.listen(PORT, () => console.log(`Server listening on :${PORT} [${process.env.NODE_ENV}]`));
+  app.listen(PORT, () => console.log(`Server on :${PORT} [${process.env.NODE_ENV}]`));
 })().catch(e => {
   console.error('Startup failed:', e);
   process.exit(1);
