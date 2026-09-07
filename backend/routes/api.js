@@ -231,7 +231,8 @@ router.get('/auth/me', authenticate, (req, res) => {
 router.get('/pages/:pageName', authenticate, async (req, res) => {
   try {
     const page    = req.params.pageName;
-    const allowed = ['home', 'about', 'workspace'];
+    /* ★ 'landing' যোগ করা হয়েছে */
+    const allowed = ['home', 'about', 'workspace', 'landing'];
     if (!allowed.includes(page)) return res.status(404).json({ error: 'Page not found' });
 
     if (req.user.role !== 'admin' && !req.user.pageAccess.includes(page)) {
@@ -261,6 +262,7 @@ router.get('/pages/:pageName', authenticate, async (req, res) => {
   }
 });
 
+/* ★ Admin panel route — BACKEND_URL + AUTH_TOKEN inject করে */
 router.get('/pages/admin/panel', authenticate, async (req, res) => {
   try {
     if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
@@ -269,9 +271,18 @@ router.get('/pages/admin/panel', authenticate, async (req, res) => {
     if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Not found' });
 
     let html = fs.readFileSync(fp, 'utf8');
+
+    /* ★ Backend URL request থেকে বের করো */
+    const backendUrl = `${req.protocol}://${req.get('host')}`;
+
+    /* ★ Token Bearer header থেকে নাও */
+    const authToken = (req.headers['authorization'] || '').replace('Bearer ', '');
+
     html = html
       .replace(/\{\{USERNAME\}\}/g,     req.user.username)
-      .replace(/\{\{FRONTEND_URL\}\}/g, process.env.FRONTEND_URL);
+      .replace(/\{\{FRONTEND_URL\}\}/g, process.env.FRONTEND_URL)
+      .replace(/\{\{BACKEND_URL\}\}/g,  backendUrl)
+      .replace(/\{\{AUTH_TOKEN\}\}/g,   authToken);
 
     await logActivity({
       userId: req.user._id, username: req.user.username, action: 'page_view', page: 'admin',
@@ -457,9 +468,7 @@ router.put('/admin/users/:id', authenticate, requireAdmin, async (req, res) => {
 });
 
 /* Delete user */
-router.delete('/admin/users/:id', authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { data: u } = await supabase.from('users').select('username, role').eq('id', req.params.id).single();
+router.delete('/admin/users/:id', authenticate, requireAdmin, async (req, resusername, role').eq('id', req.params.id).single();
     if (!u) return res.status(404).json({ error: 'Not found' });
     if (u.role === 'admin') return res.status(400).json({ error: 'Cannot delete admin.' });
 
@@ -488,7 +497,9 @@ router.post('/admin/users/:id/block', authenticate, requireAdmin, async (req, re
       login_status:    'blocked'
     }).eq('id', req.params.id);
 
-    const { data: u } = await supabase.from('users').select('username').eq('id', req.params.id).single();
+    const { data: u } = await supabase.from('users) => {
+  try {
+    const { data: u } = await supabase.from('users').select('').select('username').eq('id', req.params.id).single();
     await logActivity({
       userId: req.user._id, username: req.user.username, action: 'blocked',
       ip: req.clientIP, device: req.deviceInfo.name, userAgent: req.deviceInfo.ua,
@@ -578,7 +589,8 @@ router.get('/admin/stats/pages', authenticate, requireAdmin, async (_req, res) =
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     const d7    = new Date(now - 7  * 864e5).toISOString();
     const d30   = new Date(now - 30 * 864e5).toISOString();
-    const pages = ['home', 'about', 'workspace'];
+    /* ★ 'landing' যোগ করা হয়েছে */
+    const pages = ['home', 'about', 'workspace', 'landing'];
     const stats = {};
 
     for (const p of pages) {
@@ -596,60 +608,7 @@ router.get('/admin/stats/pages', authenticate, requireAdmin, async (_req, res) =
       .select('page, timestamp')
       .eq('action', 'page_view')
       .gte('timestamp', d30)
-      .order('timestamp', { ascending: true });
-
-    const dailyMap = {};
-    (raw || []).forEach(r => {
-      const date = r.timestamp.substring(0, 10);
-      const key  = `${date}_${r.page}`;
-      if (!dailyMap[key]) dailyMap[key] = { date, page: r.page, count: 0 };
-      dailyMap[key].count++;
-    });
-    const daily = Object.values(dailyMap);
-
-    res.json({ stats, daily });
-  } catch (e) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-/* Logs */
-router.get('/admin/logs', authenticate, requireAdmin, async (req, res) => {
-  try {
-    const { action, username, page, status, limit: lim, offset: off } = req.query;
-    const limit  = Math.min(parseInt(lim) || 100, 500);
-    const offset = parseInt(off) || 0;
-
-    let query = supabase
-      .from('audit_logs')
-      .select('*', { count: 'exact' })
-      .order('timestamp', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (action)   query = query.eq('action', action);
-    if (page)     query = query.eq('page', page);
-    if (status)   query = query.eq('status', status);
-    if (username) query = query.ilike('username', `%${username}%`);
-
-    const { data: logs, count: total } = await query;
-
-    res.json({ logs: logs || [], total: total || 0, limit, offset });
-  } catch (e) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-/* Devices */
-router.get('/admin/devices', authenticate, requireAdmin, async (_req, res) => {
-  try {
-    const { data: devices } = await supabase
-      .from('devices')
-      .select('id, user_id, name, ip, first_seen, last_seen, is_blocked, users(username)')
-      .order('last_seen', { ascending: false });
-
-    const all = (devices || []).map(d => ({
-      deviceId:  d.id,
-      userId:    d.user_id,
+      . d.user_id,
       username:  d.users?.username || 'unknown',
       name:      d.name,
       ip:        d.ip,
