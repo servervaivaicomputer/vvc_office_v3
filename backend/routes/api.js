@@ -6,9 +6,14 @@ const path = require('path');
 const fs = require('fs');
 const { supabase } = require('../database/database');
 const {
-  generateToken, getClientIP, parseDevice,
-  authenticate, requireAdmin,
-  logActivity, recordDevice, COOKIE_NAME
+  generateToken,
+  getClientIP,
+  parseDevice,
+  authenticate,
+  requireAdmin,
+  logActivity,
+  recordDevice,
+  COOKIE_NAME
 } = require('../middleware/auth');
 
 const loginLimiter = rateLimit({
@@ -29,14 +34,20 @@ router.use(apiLimiter);
 
 function sanitize(s) {
   if (typeof s !== 'string') return '';
+  var map = {
+    '<': '&lt;',
+    '>': '&gt;',
+    '&': '&amp;',
+    "'": '&#39;',
+    '"': '&quot;',
+    '/': '&#47;'
+  };
   return s.replace(/[<>&'"\/]/g, function(c) {
-    return { '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&#39;', '"': '&quot;', '/': '&#47;' }[c];
+    return map[c];
   });
 }
 
-// ──────────────────────────────────────
-// AUTH
-// ──────────────────────────────────────
+/* ──────── AUTH ──────── */
 
 router.post('/auth/login', loginLimiter, async function(req, res) {
   try {
@@ -51,54 +62,138 @@ router.post('/auth/login', loginLimiter, async function(req, res) {
     var dev = parseDevice(req);
     var max = parseInt(process.env.MAX_FAILED_ATTEMPTS) || 10;
 
-    var result = await supabase.from('users').select('*').eq('username', username).single();
+    var result = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .single();
+
     var user = result.data;
     if (result.error || !user) {
       return res.status(401).json({ error: 'Invalid credentials.' });
     }
 
     if (user.is_blocked) {
-      await logActivity({ userId: user.id, username: user.username, action: 'login_failed', ip: ip, device: dev.name, userAgent: dev.ua, status: 'blocked', details: 'Blocked account' });
+      await logActivity({
+        userId: user.id,
+        username: user.username,
+        action: 'login_failed',
+        ip: ip,
+        device: dev.name,
+        userAgent: dev.ua,
+        status: 'blocked',
+        details: 'Blocked account'
+      });
       return res.status(403).json({ error: 'Account blocked. Contact admin.' });
     }
 
-    var devResult = await supabase.from('devices').select('id').eq('user_id', user.id).eq('ip', ip).eq('is_blocked', true).single();
+    var devResult = await supabase
+      .from('devices')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('ip', ip)
+      .eq('is_blocked', true)
+      .single();
+
     if (devResult.data) {
-      await logActivity({ userId: user.id, username: user.username, action: 'login_failed', ip: ip, device: dev.name, userAgent: dev.ua, status: 'blocked', details: 'Blocked device' });
+      await logActivity({
+        userId: user.id,
+        username: user.username,
+        action: 'login_failed',
+        ip: ip,
+        device: dev.name,
+        userAgent: dev.ua,
+        status: 'blocked',
+        details: 'Blocked device'
+      });
       return res.status(403).json({ error: 'This device is blocked.' });
     }
 
     var ok = await bcrypt.compare(password, user.password);
     if (!ok) {
       var newAttempts = (user.failed_login_attempts || 0) + 1;
-      var updateData = { failed_login_attempts: newAttempts, last_failed_attempt: new Date().toISOString() };
+      var updateData = {
+        failed_login_attempts: newAttempts,
+        last_failed_attempt: new Date().toISOString()
+      };
       if (newAttempts >= max) {
         updateData.is_blocked = true;
         updateData.blocked_by = 'auto';
         updateData.blocked_at = new Date().toISOString();
         updateData.blocked_reason = 'Auto-blocked after ' + max + ' failed attempts';
         updateData.login_status = 'blocked';
-        await logActivity({ userId: user.id, username: user.username, action: 'blocked', ip: ip, device: dev.name, userAgent: dev.ua, status: 'blocked', details: 'Auto-blocked (' + max + ' fails)' });
+        await logActivity({
+          userId: user.id,
+          username: user.username,
+          action: 'blocked',
+          ip: ip,
+          device: dev.name,
+          userAgent: dev.ua,
+          status: 'blocked',
+          details: 'Auto-blocked (' + max + ' fails)'
+        });
       }
-      await supabase.from('users').update(updateData).eq('id', user.id);
-      await logActivity({ userId: user.id, username: user.username, action: 'login_failed', ip: ip, device: dev.name, userAgent: dev.ua, status: 'failure', details: 'Attempt ' + newAttempts + '/' + max });
-      return res.status(401).json({ error: 'Invalid credentials.', attemptsRemaining: Math.max(0, max - newAttempts) });
+      await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', user.id);
+      await logActivity({
+        userId: user.id,
+        username: user.username,
+        action: 'login_failed',
+        ip: ip,
+        device: dev.name,
+        userAgent: dev.ua,
+        status: 'failure',
+        details: 'Attempt ' + newAttempts + '/' + max
+      });
+      return res.status(401).json({
+        error: 'Invalid credentials.',
+        attemptsRemaining: Math.max(0, max - newAttempts)
+      });
     }
 
-    var normUser = { id: user.id, username: user.username, role: user.role, pageAccess: user.page_access || [] };
-    await supabase.from('users').update({
-      failed_login_attempts: 0,
-      last_login: new Date().toISOString(),
-      last_login_ip: ip,
-      last_login_device: dev.name,
-      login_status: 'active'
-    }).eq('id', user.id);
+    var normUser = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      pageAccess: user.page_access || []
+    };
+
+    await supabase
+      .from('users')
+      .update({
+        failed_login_attempts: 0,
+        last_login: new Date().toISOString(),
+        last_login_ip: ip,
+        last_login_device: dev.name,
+        login_status: 'active'
+      })
+      .eq('id', user.id);
 
     await recordDevice(normUser, ip, dev);
     var token = generateToken(normUser);
-    await logActivity({ userId: user.id, username: user.username, action: 'login', ip: ip, device: dev.name, userAgent: dev.ua, status: 'success', details: 'Login OK' });
 
-    return res.json({ success: true, token: token, user: { username: user.username, role: user.role, pageAccess: user.page_access || [] } });
+    await logActivity({
+      userId: user.id,
+      username: user.username,
+      action: 'login',
+      ip: ip,
+      device: dev.name,
+      userAgent: dev.ua,
+      status: 'success',
+      details: 'Login OK'
+    });
+
+    return res.json({
+      success: true,
+      token: token,
+      user: {
+        username: user.username,
+        role: user.role,
+        pageAccess: user.page_access || []
+      }
+    });
   } catch (e) {
     console.error('Login err:', e);
     return res.status(500).json({ error: 'Server error.' });
@@ -109,22 +204,36 @@ router.post('/auth/admin-login', loginLimiter, async function(req, res) {
   try {
     var username = req.body.username;
     var password = req.body.password;
-    if (!username || !password) return res.status(400).json({ error: 'Credentials required.' });
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Credentials required.' });
+    }
     username = sanitize(String(username).trim().toLowerCase());
 
     var ip = getClientIP(req);
     var dev = parseDevice(req);
     var max = parseInt(process.env.MAX_FAILED_ATTEMPTS) || 10;
 
-    var result = await supabase.from('users').select('*').eq('username', username).single();
+    var result = await supabase
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .single();
+
     var user = result.data;
-    if (!user || user.role !== 'admin') return res.status(401).json({ error: 'Invalid admin credentials.' });
-    if (user.is_blocked) return res.status(403).json({ error: 'Admin account blocked.' });
+    if (!user || user.role !== 'admin') {
+      return res.status(401).json({ error: 'Invalid admin credentials.' });
+    }
+    if (user.is_blocked) {
+      return res.status(403).json({ error: 'Admin account blocked.' });
+    }
 
     var ok = await bcrypt.compare(password, user.password);
     if (!ok) {
       var newAttempts = (user.failed_login_attempts || 0) + 1;
-      var updateData = { failed_login_attempts: newAttempts, last_failed_attempt: new Date().toISOString() };
+      var updateData = {
+        failed_login_attempts: newAttempts,
+        last_failed_attempt: new Date().toISOString()
+      };
       if (newAttempts >= max) {
         updateData.is_blocked = true;
         updateData.blocked_by = 'auto';
@@ -132,25 +241,60 @@ router.post('/auth/admin-login', loginLimiter, async function(req, res) {
         updateData.blocked_reason = 'Auto-blocked';
         updateData.login_status = 'blocked';
       }
-      await supabase.from('users').update(updateData).eq('id', user.id);
-      await logActivity({ userId: user.id, username: user.username, action: 'login_failed', ip: ip, device: dev.name, userAgent: dev.ua, status: 'failure', details: 'Admin login fail' });
+      await supabase
+        .from('users')
+        .update(updateData)
+        .eq('id', user.id);
+      await logActivity({
+        userId: user.id,
+        username: user.username,
+        action: 'login_failed',
+        ip: ip,
+        device: dev.name,
+        userAgent: dev.ua,
+        status: 'failure',
+        details: 'Admin login fail'
+      });
       return res.status(401).json({ error: 'Invalid admin credentials.' });
     }
 
-    var normUser = { id: user.id, username: user.username, role: user.role, pageAccess: user.page_access || [] };
-    await supabase.from('users').update({
-      failed_login_attempts: 0,
-      last_login: new Date().toISOString(),
-      last_login_ip: ip,
-      last_login_device: dev.name,
-      login_status: 'active'
-    }).eq('id', user.id);
+    var normUser = {
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      pageAccess: user.page_access || []
+    };
+
+    await supabase
+      .from('users')
+      .update({
+        failed_login_attempts: 0,
+        last_login: new Date().toISOString(),
+        last_login_ip: ip,
+        last_login_device: dev.name,
+        login_status: 'active'
+      })
+      .eq('id', user.id);
 
     await recordDevice(normUser, ip, dev);
     var token = generateToken(normUser);
-    await logActivity({ userId: user.id, username: user.username, action: 'login', ip: ip, device: dev.name, userAgent: dev.ua, status: 'success', details: 'Admin login OK' });
 
-    return res.json({ success: true, token: token, user: { username: user.username, role: user.role } });
+    await logActivity({
+      userId: user.id,
+      username: user.username,
+      action: 'login',
+      ip: ip,
+      device: dev.name,
+      userAgent: dev.ua,
+      status: 'success',
+      details: 'Admin login OK'
+    });
+
+    return res.json({
+      success: true,
+      token: token,
+      user: { username: user.username, role: user.role }
+    });
   } catch (e) {
     console.error('Admin login err:', e);
     return res.status(500).json({ error: 'Server error.' });
@@ -158,31 +302,49 @@ router.post('/auth/admin-login', loginLimiter, async function(req, res) {
 });
 
 router.post('/auth/logout', authenticate, async function(req, res) {
-  await logActivity({ userId: req.user._id, username: req.user.username, action: 'logout', ip: req.clientIP, device: req.deviceInfo.name, userAgent: req.deviceInfo.ua, status: 'success' });
+  await logActivity({
+    userId: req.user._id,
+    username: req.user.username,
+    action: 'logout',
+    ip: req.clientIP,
+    device: req.deviceInfo.name,
+    userAgent: req.deviceInfo.ua,
+    status: 'success'
+  });
   res.clearCookie(COOKIE_NAME, { path: '/' });
   res.json({ success: true });
 });
 
 router.get('/auth/me', authenticate, function(req, res) {
-  res.json({ user: { id: req.user._id, username: req.user.username, role: req.user.role, pageAccess: req.user.pageAccess, lastLogin: req.user.lastLogin, loginStatus: req.user.loginStatus } });
+  res.json({
+    user: {
+      id: req.user._id,
+      username: req.user.username,
+      role: req.user.role,
+      pageAccess: req.user.pageAccess,
+      lastLogin: req.user.lastLogin,
+      loginStatus: req.user.loginStatus
+    }
+  });
 });
 
-// ──────────────────────────────────────
-// PAGE CONTENT API
-// ──────────────────────────────────────
+/* ──────── PAGE CONTENT ──────── */
 
 router.get('/pages/:pageName', authenticate, async function(req, res) {
   try {
     var page = req.params.pageName;
     var allowed = ['home', 'about', 'workspace', 'landing'];
-    if (allowed.indexOf(page) === -1) return res.status(404).json({ error: 'Page not found' });
-
+    if (allowed.indexOf(page) === -1) {
+      return res.status(404).json({ error: 'Page not found' });
+    }
     if (req.user.role !== 'admin' && req.user.pageAccess.indexOf(page) === -1) {
       return res.status(403).json({ error: 'Access denied', page: page });
     }
 
     var fp = path.join(__dirname, '..', 'projects', page, 'index.html');
-    if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Page file not found' });
+    if (!fs.existsSync(fp)) {
+      return res.status(404).json({ error: 'Page file not found' });
+    }
 
     var html = fs.readFileSync(fp, 'utf8');
     html = html.replace(/\{\{USERNAME\}\}/g, req.user.username);
@@ -190,7 +352,16 @@ router.get('/pages/:pageName', authenticate, async function(req, res) {
     html = html.replace(/\{\{USER_PAGES\}\}/g, JSON.stringify(req.user.pageAccess));
     html = html.replace(/\{\{FRONTEND_URL\}\}/g, process.env.FRONTEND_URL);
 
-    await logActivity({ userId: req.user._id, username: req.user.username, action: 'page_view', page: page, ip: req.clientIP, device: req.deviceInfo.name, userAgent: req.deviceInfo.ua, status: 'success' });
+    await logActivity({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'page_view',
+      page: page,
+      ip: req.clientIP,
+      device: req.deviceInfo.name,
+      userAgent: req.deviceInfo.ua,
+      status: 'success'
+    });
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
@@ -202,21 +373,35 @@ router.get('/pages/:pageName', authenticate, async function(req, res) {
 
 router.get('/pages/admin/panel', authenticate, async function(req, res) {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ error: 'Admin only' });
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
 
     var fp = path.join(__dirname, '..', 'admin', 'index.html');
-    if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Not found' });
+    if (!fs.existsSync(fp)) {
+      return res.status(404).json({ error: 'Not found' });
+    }
 
     var html = fs.readFileSync(fp, 'utf8');
     var backendUrl = req.protocol + '://' + req.get('host');
-    var authToken = (req.headers['authorization'] || '').replace('Bearer ', '');
+    var authHeader = req.headers['authorization'] || '';
+    var authToken = authHeader.replace('Bearer ', '');
 
     html = html.replace(/\{\{USERNAME\}\}/g, req.user.username);
     html = html.replace(/\{\{FRONTEND_URL\}\}/g, process.env.FRONTEND_URL);
     html = html.replace(/\{\{BACKEND_URL\}\}/g, backendUrl);
     html = html.replace(/\{\{AUTH_TOKEN\}\}/g, authToken);
 
-    await logActivity({ userId: req.user._id, username: req.user.username, action: 'page_view', page: 'admin', ip: req.clientIP, device: req.deviceInfo.name, userAgent: req.deviceInfo.ua, status: 'success' });
+    await logActivity({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'page_view',
+      page: 'admin',
+      ip: req.clientIP,
+      device: req.deviceInfo.name,
+      userAgent: req.deviceInfo.ua,
+      status: 'success'
+    });
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
@@ -226,29 +411,75 @@ router.get('/pages/admin/panel', authenticate, async function(req, res) {
   }
 });
 
-// ──────────────────────────────────────
-// ADMIN - async function(_req, res) {
+/* ──────── ADMIN DASHBOARD ──────── */
+
+router.get('/admin/dashboard', authenticate, requireAdmin, async function(_req, res) {
   try {
     var now = new Date();
     var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     var d7 = new Date(now - 7 * 864e5).toISOString();
     var d30 = new Date(now - 30 * 864e5).toISOString();
 
-    var r1 = await supabase.from('users').select('id', { count: 'exact', head: true });
-    var r2 = await supabase.from('users').select('id', { count: 'exact', DASHBOARD
-// ──────────────────────────────────────
+    var r1 = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true });
 
-router.get('/admin/dashboard', authenticate, requireAdmin, head: true }).eq('is_blocked', true);
-    var r3 = await supabase.from('audit_logs').select('user_id', { count: 'exact' }).eq('action', 'login').gte('timestamp', today);
-    var r4 = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'page_view').gte('timestamp', today);
-    var r5 = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'page_view').gte('timestamp', d7);
-    var r6 = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'page_view').gte('timestamp', d30);
-    var r7 = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'login').gte('timestamp', today);
-    var r8 = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'login_failed').gte('timestamp', today);
-    var r9 = await supabase.from('audit_logs').select('*').order('timestamp', { ascending: false }).limit(25);
+    var r2 = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_blocked', true);
+
+    var r3 = await supabase
+      .from('audit_logs')
+      .select('user_id', { count: 'exact' })
+      .eq('action', 'login')
+      .gte('timestamp', today);
+
+    var r4 = await supabase
+      .from('audit_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('action', 'page_view')
+      .gte('timestamp', today);
+
+    var r5 = await supabase
+      .from('audit_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('action', 'page_view')
+      .gte('timestamp', d7);
+
+    var r6 = await supabase
+      .from('audit_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('action', 'page_view')
+      .gte('timestamp', d30);
+
+    var r7 = await supabase
+      .from('audit_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('action', 'login')
+      .gte('timestamp', today);
+
+    var r8 = await supabase
+      .from('audit_logs')
+      .select('id', { count: 'exact', head: true })
+      .eq('action', 'login_failed')
+      .gte('timestamp', today);
+
+    var r9 = await supabase
+      .from('audit_logs')
+      .select('*')
+      .order('timestamp', { ascending: false })
+      .limit(25);
 
     var todayLogins = r3.data || [];
-    var activeToday = todayLogins.length > 0 ? [...new Set(todayLogins.map(function(l) { return l.user_id; }))].length : 0;
+    var userIds = todayLogins.map(function(l) { return l.user_id; });
+    var uniqueIds = [];
+    for (var i = 0; i < userIds.length; i++) {
+      if (uniqueIds.indexOf(userIds[i]) === -1) {
+        uniqueIds.push(userIds[i]);
+      }
+    }
+    var activeToday = uniqueIds.length;
 
     res.json({
       stats: {
@@ -269,13 +500,15 @@ router.get('/admin/dashboard', authenticate, requireAdmin, head: true }).eq('is_
   }
 });
 
-// ──────────────────────────────────────
-// ADMIN - USERS
-// ──────────────────────────────────────
+/* ──────── ADMIN USERS ──────── */
 
 router.get('/admin/users', authenticate, requireAdmin, async function(_req, res) {
   try {
-    var result = await supabase.from('users').select('id, username, role, page_access, is_blocked, blocked_by, blocked_at, blocked_reason, failed_login_attempts, last_failed_attempt, last_login, last_login_ip, last_login_device, login_status, created_at, updated_at').order('created_at', { ascending: false });
+    var result = await supabase
+      .from('users')
+      .select('id, username, role, page_access, is_blocked, blocked_by, blocked_at, blocked_reason, failed_login_attempts, last_failed_attempt, last_login, last_login_ip, last_login_device, login_status, created_at, updated_at')
+      .order('created_at', { ascending: false });
+
     res.json({ users: result.data || [] });
   } catch (e) {
     res.status(500).json({ error: 'Server error' });
@@ -284,28 +517,46 @@ router.get('/admin/users', authenticate, requireAdmin, async function(_req, res)
 
 router.get('/admin/users/:id', authenticate, requireAdmin, async function(req, res) {
   try {
-    var userResult = await supabase.from('users').select('id, username, role, page_access, is_blocked, blocked_by, blocked_at, blocked_reason, failed_login_attempts, last_login, last_login_ip, last_login_device, login_status, created_at').eq('id', req.params.id).single();
-    if (!userResult.data) return res.status(404).json({ error: 'Not found' });
+    var userResult = await supabase
+      .from('users')
+      .select('id, username, role, page_access, is_blocked, blocked_by, blocked_at, blocked_reason, failed_login_attempts, last_login, last_login_ip, last_login_device, login_status, created_at')
+      .eq('id', req.params.id)
+      .single();
 
-    var devResult = await supabase.from('devices').select('*').eq('user_id', userResult.data.id).order('last_seen', { ascending: false });
-    var logResult = await supabase.from('audit_logs').select('*').eq('user_id', userResult.data.id).order('timestamp', { ascending: false }).limit(100);
+    if (!userResult.data) {
+      return res.status(404).json({ error: 'Not found' });
+    }
 
+    var devResult = await supabase
+      .from('devices')
+      .select('*')
+      .eq('user_id', userResult.data.id)
+      .order('last_seen', { ascending: false });
+
+    var logResult = await supabase
+      .from('audit_logs')
+      .select('*')
+      .eq('user_id', userResult.data.id)
+      .order('timestamp', { ascending: false })
+      .limit(100);
+
+    var u = userResult.data;
     res.json({
       user: {
-        id: userResult.data.id,
-        username: userResult.data.username,
-        role: userResult.data.role,
-        pageAccess: userResult.data.page_access || [],
-        is_blocked: userResult.data.is_blocked,
-        blocked_by: userResult.data.blocked_by,
-        blocked_at: userResult.data.blocked_at,
-        blocked_reason: userResult.data.blocked_reason,
-        failed_login_attempts: userResult.data.failed_login_attempts,
-        last_login: userResult.data.last_login,
-        last_login_ip: userResult.data.last_login_ip,
-        last_login_device: userResult.data.last_login_device,
-        login_status: userResult.data.login_status,
-        created_at: userResult.data.created_at,
+        id: u.id,
+        username: u.username,
+        role: u.role,
+        pageAccess: u.page_access || [],
+        is_blocked: u.is_blocked,
+        blocked_by: u.blocked_by,
+        blocked_at: u.blocked_at,
+        blocked_reason: u.blocked_reason,
+        failed_login_attempts: u.failed_login_attempts,
+        last_login: u.last_login,
+        last_login_ip: u.last_login_ip,
+        last_login_device: u.last_login_device,
+        login_status: u.login_status,
+        created_at: u.created_at,
         devices: devResult.data || []
       },
       logs: logResult.data || []
@@ -327,40 +578,43 @@ router.post('/admin/users', authenticate, requireAdmin, async function(req, res)
     }
     username = sanitize(String(username).trim().toLowerCase());
 
-    var existsResult = await supabase.from('users').select('id').eq('username', username).single();
-    if (existsResult.data) return res.status(409).json({ error: 'Username exists.' });
+    var existsResult = await supabase
+      .from('users')
+      .select('id')
+      .eq('username', username)
+      .single();
+
+    if (existsResult.data) {
+      return res.status(409).json({ error: 'Username exists.' });
+    }
 
     var hashed = await bcrypt.hash(password, 12);
-    var insertResult = await supabase.from('users').insert({
-      username: username,
-      password: hashed,
-      role: role || 'user',
-      page_access: pageAccess || []
-    }).select('id, username, role, page_access, login_status, created_at').single();
+    var insertResult = await supabase
+      .from('users')
+      .insert({
+        username: username,
+        password: hashed,
+        role: role || 'user',
+        page_access: pageAccess || []
+      })
+      .select('id, username, role, page_access, login_status, created_at')
+      .single();
 
-    if (insertResult.error) return res.status(500).json({ error: 'Create failed' });
+    if (insertResult.error) {
+      return res.status(500).json({ error: 'Create failed' });
+    }
 
-    await logActivity({ userId: req.user._id, username: req.user.username, action: 'user_created', ip: req.clientIP, device: req.deviceInfo.name, userAgent: req.deviceInfo.ua, details: 'Created ' + username });
+    await logActivity({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'user_created',
+      ip: req.clientIP,
+      device: req.deviceInfo.name,
+      userAgent: req.deviceInfo.ua,
+      details: 'Created ' + username
+    });
 
-    res.status(2, device: req.deviceInfo.name, userAgent: req.deviceInfo.ua, details: 'Updated ' + result.data.username });
-
-    res.json({ success: true, user: result.data });
-  } catch (e) {
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-router.delete('/admin/users/:id', authenticate, requireAdmin, async function(req, res) {
-  try {
-    var userResult = await supabase.from('users').select('username, role').eq('id', req.params.id).single();
-    if (!userResult.data) return res.status(404).json({ error: 'Not found' });
-    if (userResult.data.role === 'admin') return res.status(400).json({ error: 'Cannot delete admin.' });
-
-    await supabase.from('users').delete().eq('id', req.params.id);
-
-    await logActivity({ userId: req.user._id, username: req.user.username, action: 'user_deleted', ip: req.clientIP, device: req.deviceInfo2);
-
-    var result = await supabase.from('users').update(updateData).eq('id01).json({ success: true, user: insertResult.data });
+    res.status(201).json({ success: true, user: insertResult.data });
   } catch (e) {
     res.status(500).json({ error: 'Server error' });
   }
@@ -375,10 +629,66 @@ router.put('/admin/users/:id', authenticate, requireAdmin, async function(req, r
     var updateData = {};
     if (role) updateData.role = role;
     if (pageAccess) updateData.page_access = pageAccess;
-    if (password && password.length >= 8) updateData.password = await bcrypt.hash(password, 1', req.params.id).select('id, username, role, page_access, login_status').single();
-    if (result.error || !result.data) return res.status(404).json({ error: 'Not found' });
+    if (password && password.length >= 8) {
+      updateData.password = await bcrypt.hash(password, 12);
+    }
 
-    await logActivity({ userId: req.user._id, username: req.user.username, action: 'access_granted', ip: req.clientIP.name, userAgent: req.deviceInfo.ua, details: 'Deleted ' + userResult.data.username });
+    var result = await supabase
+      .from('users')
+      .update(updateData)
+      .eq('id', req.params.id)
+      .select('id, username, role, page_access, login_status')
+      .single();
+
+    if (result.error || !result.data) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    await logActivity({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'access_granted',
+      ip: req.clientIP,
+      device: req.deviceInfo.name,
+      userAgent: req.deviceInfo.ua,
+      details: 'Updated ' + result.data.username
+    });
+
+    res.json({ success: true, user: result.data });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.delete('/admin/users/:id', authenticate, requireAdmin, async function(req, res) {
+  try {
+    var userResult = await supabase
+      .from('users')
+      .select('username, role')
+      .eq('id', req.params.id)
+      .single();
+
+    if (!userResult.data) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    if (userResult.data.role === 'admin') {
+      return res.status(400).json({ error: 'Cannot delete admin.' });
+    }
+
+    await supabase
+      .from('users')
+      .delete()
+      .eq('id', req.params.id);
+
+    await logActivity({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'user_deleted',
+      ip: req.clientIP,
+      device: req.deviceInfo.name,
+      userAgent: req.deviceInfo.ua,
+      details: 'Deleted ' + userResult.data.username
+    });
 
     res.json({ success: true });
   } catch (e) {
@@ -388,16 +698,34 @@ router.put('/admin/users/:id', authenticate, requireAdmin, async function(req, r
 
 router.post('/admin/users/:id/block', authenticate, requireAdmin, async function(req, res) {
   try {
-    await supabase.from('users').update({
-      is_blocked: true,
-      blocked_by: 'admin',
-      blocked_at: new Date().toISOString(),
-      blocked_reason: req.body.reason || 'Blocked by admin',
-      login_status: 'blocked'
-    }).eq('id', req.params.id);
+    await supabase
+      .from('users')
+      .update({
+        is_blocked: true,
+        blocked_by: 'admin',
+        blocked_at: new Date().toISOString(),
+        blocked_reason: req.body.reason || 'Blocked by admin',
+        login_status: 'blocked'
+      })
+      .eq('id', req.params.id);
 
-    var userResult = await supabase.from('users').select('username').eq('id', req.params.id).single();
-    await logActivity({ userId: req.user._id, username: req.user.username, action: 'blocked', ip: req.clientIP, device: req.deviceInfo.name, userAgent: req.deviceInfo.ua, details: 'Blocked ' + (userResult.data ? userResult.data.username : req.params.id) });
+    var userResult = await supabase
+      .from('users')
+      .select('username')
+      .eq('id', req.params.id)
+      .single();
+
+    var name = userResult.data ? userResult.data.username : req.params.id;
+
+    await logActivity({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'blocked',
+      ip: req.clientIP,
+      device: req.deviceInfo.name,
+      userAgent: req.deviceInfo.ua,
+      details: 'Blocked ' + name
+    });
 
     res.json({ success: true });
   } catch (e) {
@@ -407,17 +735,35 @@ router.post('/admin/users/:id/block', authenticate, requireAdmin, async function
 
 router.post('/admin/users/:id/unblock', authenticate, requireAdmin, async function(req, res) {
   try {
-    await supabase.from('users').update({
-      is_blocked: false,
-      blocked_by: null,
-      blocked_at: null,
-      blocked_reason: null,
-      failed_login_attempts: 0,
-      login_status: 'inactive'
-    }).eq('id', req.params.id);
+    await supabase
+      .from('users')
+      .update({
+        is_blocked: false,
+        blocked_by: null,
+        blocked_at: null,
+        blocked_reason: null,
+        failed_login_attempts: 0,
+        login_status: 'inactive'
+      })
+      .eq('id', req.params.id);
 
-    var userResult = await supabase.from('users').select('username').eq('id', req.params.id).single();
-    await logActivity({ userId: req.user._id, username: req.user.username, action: 'unblocked', ip: req.clientIP, device: req.deviceInfo.name, userAgent: req.deviceInfo.ua, details: 'Unblocked ' + (userResult.data ? userResult.data.username : req.params.id) });
+    var userResult = await supabase
+      .from('users')
+      .select('username')
+      .eq('id', req.params.id)
+      .single();
+
+    var name = userResult.data ? userResult.data.username : req.params.id;
+
+    await logActivity({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'unblocked',
+      ip: req.clientIP,
+      device: req.deviceInfo.name,
+      userAgent: req.deviceInfo.ua,
+      details: 'Unblocked ' + name
+    });
 
     res.json({ success: true });
   } catch (e) {
@@ -427,10 +773,28 @@ router.post('/admin/users/:id/unblock', authenticate, requireAdmin, async functi
 
 router.put('/admin/users/:id/access', authenticate, requireAdmin, async function(req, res) {
   try {
-    var result = await supabase.from('users').update({ page_access: req.body.pageAccess || [] }).eq('id', req.params.id).select('username, page_access').single();
-    if (!result.data) return res.status(404).json({ error: 'Not found' });
+    var result = await supabase
+      .from('users')
+      .update({ page_access: req.body.pageAccess || [] })
+      .eq('id', req.params.id)
+      .select('username, page_access')
+      .single();
 
-    await logActivity({ userId: req.user._id, username: req.user.username, action: 'access_granted', ip: req.clientIP, device: req.deviceInfo.name, userAgent: req.deviceInfo.ua, details: 'Access for ' + result.data.username + ': ' + JSON.stringify(result.data.page_access) });
+    if (!result.data) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+
+    var details = 'Access for ' + result.data.username + ': ' + JSON.stringify(result.data.page_access);
+
+    await logActivity({
+      userId: req.user._id,
+      username: req.user.username,
+      action: 'access_granted',
+      ip: req.clientIP,
+      device: req.deviceInfo.name,
+      userAgent: req.deviceInfo.ua,
+      details: details
+    });
 
     res.json({ success: true, pageAccess: result.data.page_access });
   } catch (e) {
@@ -438,14 +802,19 @@ router.put('/admin/users/:id/access', authenticate, requireAdmin, async function
   }
 });
 
-// ──────────────────────────────────────
-// ADMIN - DEVICES
-// ──────────────────────────────────────
+/* ──────── ADMIN DEVICES ──────── */
 
 router.post('/admin/devices/:uid/:did/block', authenticate, requireAdmin, async function(req, res) {
   try {
-    var result = await supabase.from('devices').update({ is_blocked: true }).eq('id', req.params.did).eq('user_id', req.params.uid);
-    if (result.error) return res.status(404).json({ error: 'Device not found' });
+    var result = await supabase
+      .from('devices')
+      .update({ is_blocked: true })
+      .eq('id', req.params.did)
+      .eq('user_id', req.params.uid);
+
+    if (result.error) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: 'Server error' });
@@ -454,24 +823,97 @@ router.post('/admin/devices/:uid/:did/block', authenticate, requireAdmin, async 
 
 router.post('/admin/devices/:uid/:did/unblock', authenticate, requireAdmin, async function(req, res) {
   try {
-    var result = await supabase.from('devices').update({ is_blocked: false }).eq('id', req.params.did).eq('user_id', req.params.uid);
-    if (result.error) return res.status(404).json({ error: 'Device not found' });
+    var result = await supabase
+      .from('devices')
+      .update({ is_blocked: false })
+      .eq('id', req.params.did)
+      .eq('user_id', req.params.uid);
+
+    if (result.error) {
+      return res.status(404).json({ error: 'Device not found' });
+    }
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// ──────────────────────────────────────
-// ADMIN - STATS
-// ──────────────────────────────────────
+/* ──────── ADMIN PAGE STATS ──────── */
 
 router.get('/admin/stats/pages', authenticate, requireAdmin, async function(_req, res) {
   try {
     var now = new Date();
     var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
     var d7 = new Date(now - 7 * 864e5).toISOString();
-    var d30 = new Date(now - ', authenticate, requireAdmin, async function(req, res) {
+    var d30 = new Date(now - 30 * 864e5).toISOString();
+    var pages = ['home', 'about', 'workspace', 'landing'];
+    var stats = {};
+
+    for (var i = 0; i < pages.length; i++) {
+      var p = pages[i];
+
+      var tResult = await supabase
+        .from('audit_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('action', 'page_view')
+        .eq('page', p)
+        .gte('timestamp', today);
+
+      var wResult = await supabase
+        .from('audit_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('action', 'page_view')
+        .eq('page', p)
+        .gte('timestamp', d7);
+
+      var mResult = await supabase
+        .from('audit_logs')
+        .select('id', { count: 'exact', head: true })
+        .eq('action', 'page_view')
+        .eq('page', p)
+        .gte('timestamp', d30);
+
+      stats[p] = {
+        today: tResult.count || 0,
+        sevenDay: wResult.count || 0,
+        thirtyDay: mResult.count || 0
+      };
+    }
+
+    var rawResult = await supabase
+      .from('audit_logs')
+      .select('page, timestamp')
+      .eq('action', 'page_view')
+      .gte('timestamp', d30)
+      .order('timestamp', { ascending: true });
+
+    var dailyMap = {};
+    var raw = rawResult.data || [];
+    for (var j = 0; j < raw.length; j++) {
+      var r = raw[j];
+      var date = r.timestamp.substring(0, 10);
+      var key = date + '_' + r.page;
+      if (!dailyMap[key]) {
+        dailyMap[key] = { date: date, page: r.page, count: 0 };
+      }
+      dailyMap[key].count++;
+    }
+
+    var daily = [];
+    var keys = Object.keys(dailyMap);
+    for (var k = 0; k < keys.length; k++) {
+      daily.push(dailyMap[keys[k]]);
+    }
+
+    res.json({ stats: stats, daily: daily });
+  } catch (e) {
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/* ──────── ADMIN LOGS ──────── */
+
+router.get('/admin/logs', authenticate, requireAdmin, async function(req, res) {
   try {
     var action = req.query.action;
     var username = req.query.username;
@@ -483,7 +925,11 @@ router.get('/admin/stats/pages', authenticate, requireAdmin, async function(_req
     var limit = Math.min(parseInt(lim) || 100, 500);
     var offset = parseInt(off) || 0;
 
-    var query = supabase.from('audit_logs').select('*', { count: 'exact' }).order('timestamp', { ascending: false }).range(offset, offset + limit - 1);
+    var query = supabase
+      .from('audit_logs')
+      .select('*', { count: 'exact' })
+      .order('timestamp', { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (action) query = query.eq('action', action);
     if (page) query = query.eq('page', page);
@@ -492,28 +938,35 @@ router.get('/admin/stats/pages', authenticate, requireAdmin, async function(_req
 
     var result = await query;
 
-    res.json({ logs: result.data || [], total: result.count || 0, limit: limit, offset: offset });
+    res.json({
+      logs: result.data || [],
+      total: result.count || 0,
+      limit: limit,
+      offset: offset
+    });
   } catch (e) {
     res.status(500).json({ error: 'Server error' });
   }
 });
 
-// ──────────────────────────────────────
-// ADMIN - ALL DEVICES
-// ──────────────────────────────────────
+/* ──────── ADMIN ALL DEVICES ──────── */
 
 router.get('/admin/devices', authenticate, requireAdmin, async function(_req, res) {
   try {
-    var result = await supabase.from('devices').select('id, user_id, name, ip, first_seen, last_seen, is_blocked, users(username)').order('last_seen', { ascending: false });
+    var result = await supabase
+      .from('devices')
+      .select('id, user_id, name, ip, first_seen, last_seen, is_blocked, users(username)')
+      .order('last_seen', { ascending: false });
 
     var all = [];
     var devices = result.data || [];
     for (var i = 0; i < devices.length; i++) {
       var d = devices[i];
+      var uname = d.users ? d.users.username : 'unknown';
       all.push({
         deviceId: d.id,
         userId: d.user_id,
-        username: d.users ? d.users.username : 'unknown',
+        username: uname,
         name: d.name,
         ip: d.ip,
         firstSeen: d.first_seen,
@@ -524,41 +977,7 @@ router.get('/admin/devices', authenticate, requireAdmin, async function(_req, re
 
     res.json({ devices: all });
   } catch (e) {
-    res.status(500).json({ error: 'Server error'timestamp', d30);
-      stats[p] = { today: tResult.count || 0, sevenDay: wResult.count || 0, thirtyDay: mResult.count || 0 };
-    }
-
-    var rawResult = await supabase.from('audit_logs').select('page, timestamp').eq('action', 'page_view').gte('timestamp', d30).order('timestamp', { ascending: true });
-    var dailyMap = {};
-    var raw = rawResult.data || [];
-    for (var j = 0; j < raw.length; j++) {
-      var r = raw[j];
-      var date = r.timestamp.substring(0, 10);
-      var key = date + '_' + r.page;
-      if (!dailyMap[key]) dailyMap[key] = { date: date, page: r.page, count: 0 };
-      dailyMap[key].count++;
-    }
-    var daily = Object.values(dailyMap);
-
-    res.json({ stats: stats, daily: daily });
-  } catch (e) {
     res.status(500).json({ error: 'Server error' });
-  }
-30 * 864e5).toISOString();
-    var pages = ['home', 'about', 'workspace', 'landing'];
-    var stats = {};
-
-    for (var i = 0; i < pages.length; i++) {
-      var p = pages[i];
-      var tResult = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'page_view').eq('page', p).gte('timestamp', today);
-      var wResult = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'page_view').eq('page', p).gte('timestamp', d7);
-      var mResult = await supabase.from('audit_logs').select('id', { count: 'exact', head: true }).eq('action', 'page_view').eq('page', p).gte('});
-
-// ──────────────────────────────────────
-// ADMIN - LOGS
-// ──────────────────────────────────────
-
-router.get('/admin/logs });
   }
 });
 
