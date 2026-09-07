@@ -2,7 +2,7 @@
    Secure Workspace — Frontend Auth Module
    ═══════════════════════════════════════════ */
 
-window.__BACKEND_URL = 'https://your-backend.onrender.com';
+window.__BACKEND_URL = 'https://vvc-office-v3.onrender.com';
 
 const Auth = {
   TOKEN_KEY: 'sw_auth_token',
