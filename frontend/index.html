@@ -1,60 +1,21 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Secure Workspace</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css">
+<title>Home</title>
 </head>
-<body>
-<div class="landing">
-  <div class="hero">
-    <div class="brand-mark">◆</div>
-    <h1>Secure<br>Workspace</h1>
-    <p class="tagline">Enterprise-grade protected content delivery.<br>Every request authenticated. Every action logged.</p>
-    <div class="hero-actions">
-      <a href="/login/" class="btn-primary">Login →</a>
-      <a href="/about/" class="btn-outline">Learn More</a>
-    </div>
-  </div>
-
-  <div class="features">
-    <div class="feature">
-      <div class="feat-icon">◆</div>
-      <h3>Zero-Trust Auth</h3>
-      <p>Every page request is independently authenticated server-side. No frontend-only protection.</p>
-    </div>
-    <div class="feature">
-      <div class="feat-icon">◆</div>
-      <h3>Encrypted Sessions</h3>
-      <p>JWT stored in HttpOnly, Secure cookies. No tokens exposed to JavaScript or local storage.</p>
-    </div>
-    <div class="feature">
-      <div class="feat-icon">◆</div>
-      <h3>Full Audit Trail</h3>
-      <p>Every login, page view, and admin action is logged with IP, device, and timestamp.</p>
-    </div>
-    <div class="feature">
-      <div class="feat-icon">◆</div>
-      <h3>Auto-Lockout</h3>
-      <p>Accounts are automatically blocked after 10 failed attempts. Only admins can restore access.</p>
-    </div>
-  </div>
-
-  <div class="page-links">
-    <h2>Protected Pages</h2>
-    <div class="link-cards">
-      <a href="/about/" class="link-card"><h3>◈ About</h3><p>System architecture and security overview.</p></a>
-      <a href="/workspace/" class="link-card"><h3>⊞ Workspace</h3><p>Collaborative tools and project management.</p></a>
-    </div>
-  </div>
-
-  <footer>
-    <p>Secure Workspace — Split architecture · Node.js + Express · MongoDB Atlas · Netlify + Render</p>
-  </footer>
-</div>
+<body style="margin:0;background:#08080c">
+<div id="app"></div>
 <script src="/js/app.js"></script>
+<script>
+(async()=>{
+  if(!Auth.isLoggedIn()){location.href='/login/';return}
+  const r=await Auth.fetchPage('home');
+  if(r.status===200){document.open();document.write(r.html);document.close()}
+  else if(r.status===401){Auth.clearToken();location.href='/login/'}
+  else{document.getElementById('app').innerHTML='<p style="color:#5a5a6e;font-family:monospace;text-align:center;padding:40px">Access Denied</p>'}
+})();
+</script>
 </body>
 </html>
