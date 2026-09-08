@@ -135,7 +135,8 @@ canvas{max-height:250px}
 
 <script>
 /* ★ Backend URL + Token — backend inject করে দেয় */
-const BACKEND = '{{BACKEND_URL}}';
+const INJECTED_BACKEND = '{{BACKEND_URL}}';
+const BACKEND = INJECTED_BACKEND.indexOf('{{') === 0 ? 'https://vvc-office-v3.onrender.com' : INJECTED_BACKEND.replace(/\/$/, '');
 const TOKEN   = '{{AUTH_TOKEN}}';
 const PAGE_SIZE = 50;
 let allUsers = [], logOffset = 0, logTotal = 0;
@@ -369,4 +370,4 @@ async function doLogout() {
 loadDashboard();
 </script>
 </body>
-</html>
+</html>  
