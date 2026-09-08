@@ -2,7 +2,19 @@
    Secure Workspace — Frontend Auth Module
    ═══════════════════════════════════════════ */
 
-window.__BACKEND_URL = 'https://vvc-office-v3.onrender.com';
+window.__BACKEND_URL = (window.__BACKEND_URL || 'https://vvc-office-v3.onrender.com').replace(/\/$/, '');
+
+async function requestBackend(path, options) {
+  var response = await fetch(window.__BACKEND_URL + path, Object.assign({
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' }
+  }, options || {}));
+  var contentType = response.headers.get('content-type') || '';
+  var body = contentType.indexOf('application/json') !== -1
+    ? await response.json()
+    : await response.text();
+  return { response: response, body: body };
+}
 
 var Auth = {
   TOKEN_KEY: 'sw_auth_token',
@@ -29,14 +41,14 @@ var Auth = {
     if (!token) return { error: 'not_logged_in', status: 401 };
 
     try {
-      var res = await fetch(window.__BACKEND_URL + '/api/pages/' + pageName, {
+      var result = await requestBackend('/api/pages/' + encodeURIComponent(pageName), {
         method: 'GET',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + token
         }
       });
+      var res = result.response;
 
       if (res.status === 401) {
         this.clearToken();
@@ -60,14 +72,13 @@ var Auth = {
   /* ── User Login ── */
   login: async function(username, password) {
     try {
-      var res = await fetch(window.__BACKEND_URL + '/api/auth/login', {
+      var result = await requestBackend('/api/auth/login', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username, password: password })
       });
-
-      var data = await res.json();
+      var res = result.response;
+      var data = result.body;
 
       if (!res.ok) {
         return {
@@ -87,14 +98,13 @@ var Auth = {
   /* ── Admin Login ── */
   adminLogin: async function(username, password) {
     try {
-      var res = await fetch(window.__BACKEND_URL + '/api/auth/admin-login', {
+      var result = await requestBackend('/api/auth/admin-login', {
         method: 'POST',
-        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: username, password: password })
       });
-
-      var data = await res.json();
+      var res = result.response;
+      var data = result.body;
 
       if (!res.ok) {
         return { error: data.error };
@@ -114,14 +124,14 @@ var Auth = {
     if (!token) return { error: 'not_logged_in', status: 401 };
 
     try {
-      var res = await fetch(window.__BACKEND_URL + '/api/admin/panel-content', {
+      var result = await requestBackend('/api/admin/panel-content', {
         method: 'GET',
-        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': 'Bearer ' + token
         }
       });
+      var res = result.response;
 
       if (res.status === 401) {
         this.clearToken();
@@ -134,7 +144,7 @@ var Auth = {
         return { error: 'server_error', status: res.status };
       }
 
-      var html = await res.text();
+      var html = typeof result.body === 'string' ? result.body : '';
       return { html: html, status: 200 };
 
     } catch (err) {
